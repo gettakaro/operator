@@ -39,27 +39,3 @@ if (config.isDevelopment) {
 
 // Export logger instance
 export default logger;
-
-// Helper functions for structured logging
-export function logError(message: string, error: Error, metadata?: Record<string, unknown>): void {
-  logger.error(message, {
-    error: {
-      message: error.message,
-      stack: error.stack,
-      name: error.name,
-    },
-    ...metadata,
-  });
-}
-
-export function logInfo(message: string, metadata?: Record<string, unknown>): void {
-  logger.info(message, metadata);
-}
-
-export function logDebug(message: string, metadata?: Record<string, unknown>): void {
-  logger.debug(message, metadata);
-}
-
-export function logWarning(message: string, metadata?: Record<string, unknown>): void {
-  logger.warn(message, metadata);
-}
