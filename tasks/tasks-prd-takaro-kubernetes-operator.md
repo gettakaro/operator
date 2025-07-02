@@ -2,8 +2,8 @@
 
 - [ ] 1.0 Set up operator foundation and basic CRD structure
   - [x] 1.1 Initialize Node.js project with TypeScript configuration and required dependencies
-  - [ ] 1.2 Create basic operator structure with Express.js health endpoint and K8s client initialization
-  - [ ] 1.3 Define Domain CRD schema with TypeScript types and OpenAPI validation
+  - [x] 1.2 Create basic operator structure with Express.js health endpoint and K8s client initialization
+  - [x] 1.3 Define Domain CRD schema with TypeScript types and OpenAPI validation
   - [ ] 1.4 Set up Kind cluster for local development and create test namespace
   - [ ] 1.5 Implement basic reconciliation loop structure with controller registration
   - [ ] 1.6 Add configuration management for API endpoints and credentials via environment variables
@@ -65,18 +65,18 @@
 - `.gitignore` - Git ignore patterns
 - `.env.example` - Example environment variables documentation
 - `README.md` - Project documentation and setup instructions
-- `src/index.ts` - Main operator entry point with controller initialization and K8s client setup
+- `src/index.ts` - Main operator entry point with Express server, health endpoints, and K8s client setup ✓
 - `src/controllers/domain-controller.ts` - Domain CRD reconciliation logic and Takaro API integration
 - `src/controllers/mockserver-controller.ts` - MockServer CRD reconciliation and deployment management
 - `src/controllers/user-controller.ts` - User CRD reconciliation and user provisioning logic
-- `src/apis/v1/domain.ts` - Domain CRD TypeScript definitions and schema
+- `src/apis/v1/domain.ts` - Domain CRD TypeScript definitions and schema ✓
 - `src/apis/v1/mockserver.ts` - MockServer CRD TypeScript definitions and schema
 - `src/apis/v1/user.ts` - User CRD TypeScript definitions and schema
 - `src/services/takaro-client.ts` - Wrapper service for @takaro/apiclient with error handling
 - `src/services/kubernetes-service.ts` - Helper service for K8s resource management
 - `src/utils/status-updater.ts` - Utility for updating CRD status conditions
 - `src/utils/metrics.ts` - Prometheus metrics configuration and helpers
-- `src/config/index.ts` - Configuration management for environment variables
+- `src/config/index.ts` - Configuration management for environment variables ✓
 - `helm/takaro-operator/Chart.yaml` - Helm chart definition
 - `helm/takaro-operator/values.yaml` - Default Helm values with Redis dependency
 - `helm/takaro-operator/templates/deployment.yaml` - Operator deployment manifest
