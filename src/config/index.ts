@@ -39,8 +39,8 @@ const configSchema = z.object({
   // Operator Configuration
   operator: z.object({
     logLevel: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
-    metricsPort: z.coerce.number().int().positive().default(9090),
-    healthPort: z.coerce.number().int().positive().default(8080),
+    metricsPort: z.coerce.number().int().positive().default(15090),
+    healthPort: z.coerce.number().int().positive().default(15080),
   }),
 
   // Environment
