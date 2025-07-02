@@ -131,7 +131,7 @@ export abstract class BaseController {
     const interval = this.options.reconcileInterval || 30000;
     this.reconcileIntervalId = setInterval(() => {
       this.processReconcileQueue();
-    }, 1000);
+    }, interval);
   }
 
   protected async processReconcileQueue(): Promise<void> {
