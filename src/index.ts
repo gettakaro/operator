@@ -1,17 +1,21 @@
 import express from 'express';
 import * as k8s from '@kubernetes/client-node';
 import { loadConfig } from './config/index.js';
+import { ControllerRegistry } from './controllers/registry.js';
+import { DomainController } from './controllers/domain-controller.js';
 
 const config = loadConfig();
 const app = express();
 
 let kubeApi: k8s.CoreV1Api;
 let customObjectsApi: k8s.CustomObjectsApi;
+let controllerRegistry: ControllerRegistry;
+let kc: k8s.KubeConfig;
 let isReady = false;
 
 async function initializeKubernetesClient(): Promise<void> {
   try {
-    const kc = new k8s.KubeConfig();
+    kc = new k8s.KubeConfig();
 
     if (config.kubeconfig) {
       kc.loadFromFile(config.kubeconfig);
@@ -33,7 +37,16 @@ async function initializeKubernetesClient(): Promise<void> {
 
 async function registerControllers(): Promise<void> {
   try {
-    console.log('Controller registration placeholder - will be implemented in future tasks');
+    console.log('Registering controllers...');
+    
+    controllerRegistry = new ControllerRegistry(kc);
+    
+    const domainController = new DomainController(kc, config.namespace);
+    controllerRegistry.register('domain', domainController);
+    
+    await controllerRegistry.startAll();
+    
+    console.log('All controllers registered and started');
     isReady = true;
   } catch (error) {
     console.error('Failed to register controllers:', error);
@@ -57,12 +70,14 @@ app.get('/ready', (_req, res) => {
       status: 'ready',
       timestamp: new Date().toISOString(),
       kubernetesConnected: !!kubeApi,
+      controllers: controllerRegistry?.getStatus() || {},
     });
   } else {
     res.status(503).json({
       status: 'not ready',
       timestamp: new Date().toISOString(),
       kubernetesConnected: !!kubeApi,
+      controllers: controllerRegistry?.getStatus() || {},
     });
   }
 });
@@ -92,8 +107,14 @@ async function startOperator(): Promise<void> {
       console.log(`Readiness check: http://localhost:${config.port}/ready`);
     });
 
-    const gracefulShutdown = (signal: string) => {
+    const gracefulShutdown = async (signal: string) => {
       console.log(`Received ${signal}, shutting down gracefully...`);
+      
+      if (controllerRegistry) {
+        console.log('Stopping all controllers...');
+        await controllerRegistry.stopAll();
+      }
+      
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
