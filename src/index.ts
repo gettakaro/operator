@@ -23,7 +23,7 @@ async function shutdown(signal: string): Promise<void> {
   if (shutdownInProgress) {
     return;
   }
-  
+
   shutdownInProgress = true;
   logger.info(`Received ${signal}, starting graceful shutdown`);
 
@@ -53,7 +53,8 @@ async function main(): Promise<void> {
   logger.debug('Configuration loaded', {
     kubernetes: {
       namespace: config.kubernetes.namespace,
-      watchNamespaces: config.kubernetes.watchNamespaces,
+      watchNamespaces:
+        config.kubernetes.watchNamespaces.length > 0 ? config.kubernetes.watchNamespaces : 'all namespaces',
     },
     operator: {
       healthPort: config.operator.healthPort,
@@ -70,7 +71,7 @@ async function main(): Promise<void> {
     if (kubernetesService) {
       logger.info('Testing Kubernetes connectivity...');
       const k8sConnected = await kubernetesService.testConnectivity();
-      
+
       if (!k8sConnected) {
         logger.warn('Failed to connect to Kubernetes API, continuing without K8s connectivity');
       } else {
@@ -93,7 +94,6 @@ async function main(): Promise<void> {
       readinessEndpoint: `http://localhost:${config.operator.healthPort}/ready`,
       infoEndpoint: `http://localhost:${config.operator.healthPort}/info`,
     });
-
   } catch (error) {
     logger.error('Failed to start operator', error as Error);
     process.exit(1);

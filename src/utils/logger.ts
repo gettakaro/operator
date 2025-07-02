@@ -15,26 +15,24 @@ const devFormat = printf(({ level, message, timestamp, ...metadata }) => {
 // Create logger instance
 const logger = winston.createLogger({
   level: config.operator.logLevel,
-  format: combine(
-    errors({ stack: true }),
-    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' })
-  ),
+  format: combine(errors({ stack: true }), timestamp({ format: 'YYYY-MM-DD HH:mm:ss' })),
   defaultMeta: { service: 'takaro-operator' },
   transports: [],
 });
 
 // Add console transport based on environment
 if (config.isDevelopment) {
-  logger.add(new winston.transports.Console({
-    format: combine(
-      colorize(),
-      devFormat
-    ),
-  }));
+  logger.add(
+    new winston.transports.Console({
+      format: combine(colorize(), devFormat),
+    }),
+  );
 } else {
-  logger.add(new winston.transports.Console({
-    format: combine(json()),
-  }));
+  logger.add(
+    new winston.transports.Console({
+      format: combine(json()),
+    }),
+  );
 }
 
 // Export logger instance

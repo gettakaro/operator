@@ -39,7 +39,7 @@ export function createServer(): Express {
     try {
       // Check Kubernetes connectivity
       const k8sConnected = kubernetesService ? await kubernetesService.testConnectivity() : false;
-      
+
       if (!k8sConnected) {
         res.status(503).json({
           status: 'not ready',
@@ -79,11 +79,12 @@ export function createServer(): Express {
 
   // Basic info endpoint
   app.get('/info', (_req: Request, res: Response) => {
+    const watchNamespaces = kubernetesService?.getWatchNamespaces() || [];
     res.json({
       name: 'takaro-kubernetes-operator',
       version: process.env.npm_package_version || '0.1.0',
       environment: config.nodeEnv,
-      watchNamespaces: kubernetesService?.getWatchNamespaces() || [],
+      watchNamespaces: watchNamespaces.length > 0 ? watchNamespaces : 'all',
       operatorNamespace: config.kubernetes.namespace,
     });
   });
@@ -110,7 +111,7 @@ export function createServer(): Express {
 
 export async function startServer(app: Express): Promise<void> {
   const port = config.operator.healthPort;
-  
+
   return new Promise((resolve, reject) => {
     const server = app.listen(port, () => {
       logger.info(`Health server listening on port ${port}`, {

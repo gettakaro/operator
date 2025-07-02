@@ -11,7 +11,7 @@ export class KubernetesService {
 
   constructor() {
     this.kubeConfig = new k8s.KubeConfig();
-    
+
     // Load kubeconfig - will use in-cluster config if available, otherwise default config
     try {
       // Check if we're running in a cluster by checking for service account token
@@ -34,12 +34,10 @@ export class KubernetesService {
     this.customObjectsApi = this.kubeConfig.makeApiClient(k8s.CustomObjectsApi);
 
     // Set watch namespaces
-    this.watchNamespaces = config.kubernetes.watchNamespaces.length > 0 
-      ? config.kubernetes.watchNamespaces 
-      : ['default'];
-    
-    logger.info('Kubernetes service initialized', { 
-      watchNamespaces: this.watchNamespaces 
+    this.watchNamespaces = config.kubernetes.watchNamespaces;
+
+    logger.info('Kubernetes service initialized', {
+      watchNamespaces: this.watchNamespaces.length > 0 ? this.watchNamespaces : 'all namespaces',
     });
   }
 
@@ -109,24 +107,34 @@ export class KubernetesService {
     group: string,
     version: string,
     plural: string,
-    callback: (phase: string, obj: any) => void
+    callback: (phase: string, obj: any) => void,
   ): Promise<any> {
     const watch = new k8s.Watch(this.kubeConfig);
-    
-    const watchPath = this.watchNamespaces.length === 1
-      ? `/apis/${group}/${version}/namespaces/${this.watchNamespaces[0]}/${plural}`
-      : `/apis/${group}/${version}/${plural}`;
+
+    // Determine watch path based on namespace configuration
+    let watchPath: string;
+    if (this.watchNamespaces.length === 0) {
+      // Watch all namespaces
+      watchPath = `/apis/${group}/${version}/${plural}`;
+    } else if (this.watchNamespaces.length === 1) {
+      // Watch single namespace
+      watchPath = `/apis/${group}/${version}/namespaces/${this.watchNamespaces[0]}/${plural}`;
+    } else {
+      // Watch multiple specific namespaces - use cluster-wide watch and filter
+      watchPath = `/apis/${group}/${version}/${plural}`;
+    }
 
     return watch.watch(
       watchPath,
       {},
       (phase: string, obj: any) => {
-        // Filter by namespace if watching all namespaces
-        if (this.watchNamespaces.length > 1 && obj.metadata?.namespace) {
+        // Filter by namespace if watching specific namespaces
+        if (this.watchNamespaces.length > 0 && obj.metadata?.namespace) {
           if (this.shouldWatchNamespace(obj.metadata.namespace)) {
             callback(phase, obj);
           }
         } else {
+          // Watching all namespaces or no namespace in metadata
           callback(phase, obj);
         }
       },
@@ -137,21 +145,15 @@ export class KubernetesService {
           logger.info(`Restarting watch for ${plural}`);
           this.watchCustomResources(group, version, plural, callback);
         }, 5000);
-      }
+      },
     );
   }
 
   /**
    * Create or update a Kubernetes resource
    */
-  async applyResource(
-    apiVersion: string,
-    kind: string,
-    resource: any
-  ): Promise<any> {
-    const [group, version] = apiVersion.includes('/') 
-      ? apiVersion.split('/')
-      : ['', apiVersion];
+  async applyResource(apiVersion: string, kind: string, resource: any): Promise<any> {
+    const [group, version] = apiVersion.includes('/') ? apiVersion.split('/') : ['', apiVersion];
 
     try {
       // Try to get the existing resource
@@ -167,7 +169,7 @@ export class KubernetesService {
             version,
             namespace,
             plural,
-            name
+            name,
           });
           // Resource exists, update it
           return await this.customObjectsApi.patchNamespacedCustomObject({
@@ -176,7 +178,7 @@ export class KubernetesService {
             namespace,
             plural,
             name,
-            body: resource
+            body: resource,
           });
         } catch (error: any) {
           if (error.statusCode === 404) {
@@ -186,7 +188,7 @@ export class KubernetesService {
               version,
               namespace,
               plural,
-              body: resource
+              body: resource,
             });
           }
           throw error;
@@ -200,7 +202,7 @@ export class KubernetesService {
               return await this.coreV1Api.patchNamespacedSecret({
                 name,
                 namespace,
-                body: resource
+                body: resource,
               });
             } catch (error: any) {
               if (error.statusCode === 404) {
@@ -214,7 +216,7 @@ export class KubernetesService {
               return await this.coreV1Api.patchNamespacedConfigMap({
                 name,
                 namespace,
-                body: resource
+                body: resource,
               });
             } catch (error: any) {
               if (error.statusCode === 404) {

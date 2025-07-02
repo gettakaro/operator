@@ -34,7 +34,7 @@ export class ReconcileError extends Error {
   constructor(
     message: string,
     public readonly temporary: boolean = true,
-    public readonly reason?: string
+    public readonly reason?: string,
   ) {
     super(message);
     this.name = 'ReconcileError';
