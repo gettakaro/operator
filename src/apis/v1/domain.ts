@@ -214,7 +214,7 @@ export const DomainCRDSchema = {
                         },
                         reason: {
                           type: 'string',
-                          description: 'Unique, one-word, CamelCase reason for the condition\'s last transition',
+                          description: "Unique, one-word, CamelCase reason for the condition's last transition",
                         },
                         message: {
                           type: 'string',
