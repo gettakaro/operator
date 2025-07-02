@@ -1,0 +1,29 @@
+services:
+  takaro-operator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: takaro-operator:dev
+    container_name: takaro-operator
+    environment:
+      - NODE_ENV=development
+      - LOG_LEVEL=debug
+      - HEALTH_PORT=8080
+      - METRICS_PORT=9090
+      - KUBERNETES_NAMESPACE=takaro-system
+      - WATCH_NAMESPACES=default,takaro-test
+      # Mount kubeconfig for local development
+      - KUBECONFIG=/home/node/.kube/config
+    ports:
+      - "8080:8080"  # Health endpoints
+      - "9090:9090"  # Metrics endpoint
+    volumes:
+      # Mount kubeconfig from host for local development
+      - ${HOME}/.kube:/home/node/.kube:ro
+    restart: unless-stopped
+    networks:
+      - takaro-network
+
+networks:
+  takaro-network:
+    driver: bridge
