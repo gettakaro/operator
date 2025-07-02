@@ -214,10 +214,12 @@ export const DomainCRDSchema = {
                         },
                         reason: {
                           type: 'string',
+                          maxLength: 128,
                           description: "Unique, one-word, CamelCase reason for the condition's last transition",
                         },
                         message: {
                           type: 'string',
+                          maxLength: 512,
                           description: 'Human-readable message indicating details about last transition',
                         },
                       },
