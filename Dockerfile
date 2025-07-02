@@ -19,6 +19,9 @@ RUN npm run build
 # Production stage
 FROM node:24-alpine
 
+# Set NODE_ENV to production for optimal performance
+ENV NODE_ENV=production
+
 WORKDIR /app
 
 # Install dumb-init for proper signal handling
