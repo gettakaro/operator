@@ -14,7 +14,10 @@
     "test": "node --loader tsx --test src/**/*.test.ts",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write 'src/**/*.ts'",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "cluster:up": "./scripts/setup-kind.sh",
+    "cluster:down": "./scripts/teardown-kind.sh",
+    "cluster:status": "kubectl cluster-info --context=kind-takaro-operator-dev"
   },
   "keywords": [
     "kubernetes",

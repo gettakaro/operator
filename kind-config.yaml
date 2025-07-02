@@ -1,0 +1,36 @@
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: takaro-operator-dev
+nodes:
+- role: control-plane
+  image: kindest/node:v1.31.0
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 8090
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 8444
+    protocol: TCP
+  - containerPort: 9443
+    hostPort: 9444
+    protocol: TCP
+  extraMounts:
+  - hostPath: /var/run/docker.sock
+    containerPath: /var/run/docker.sock
+- role: worker
+  image: kindest/node:v1.31.0
+networking:
+  apiServerAddress: "127.0.0.1"
+  apiServerPort: 6443
+  disableDefaultCNI: false
+  kubeProxyMode: "iptables"
+containerdConfigPatches:
+- |-
+  [plugins."io.containerd.grpc.v1.cri".registry.mirrors."localhost:5001"]
+    endpoint = ["http://localhost:5001"]
