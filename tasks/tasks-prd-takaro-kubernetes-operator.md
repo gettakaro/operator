@@ -1,12 +1,12 @@
 ## Tasks
 
-- [ ] 1.0 Set up operator foundation and basic CRD structure
+- [x] 1.0 Set up operator foundation and basic CRD structure (except Kind cluster setup)
   - [x] 1.1 Initialize Node.js project with TypeScript configuration and required dependencies
   - [x] 1.2 Create basic operator structure with Express.js health endpoint and K8s client initialization
   - [x] 1.3 Define Domain CRD schema with TypeScript types and OpenAPI validation
   - [ ] 1.4 Set up Kind cluster for local development and create test namespace
-  - [ ] 1.5 Implement basic reconciliation loop structure with controller registration
-  - [ ] 1.6 Add configuration management for API endpoints and credentials via environment variables
+  - [x] 1.5 Implement basic reconciliation loop structure with controller registration
+  - [x] 1.6 Add configuration management for API endpoints and credentials via environment variables
 
 - [ ] 2.0 Implement Domain CRD with Takaro API integration
   - [ ] 2.1 [depends on: 1.0] Create Takaro client service wrapper using @takaro/apiclient
@@ -57,16 +57,18 @@
 
 ## Relevant Files
 
-- `package.json` - Node.js project configuration with dependencies and scripts
-- `tsconfig.json` - TypeScript compiler configuration
-- `.eslintrc.json` - ESLint configuration for code quality
-- `.prettierrc.json` - Prettier configuration for code formatting
-- `nodemon.json` - Nodemon configuration for development auto-reload
+- `package.json` - Node.js project configuration with dependencies and scripts ✓
+- `tsconfig.json` - TypeScript compiler configuration ✓
+- `.eslintrc.json` - ESLint configuration for code quality ✓
+- `.prettierrc.json` - Prettier configuration for code formatting ✓
+- `nodemon.json` - Nodemon configuration for development auto-reload ✓
 - `.gitignore` - Git ignore patterns
 - `.env.example` - Example environment variables documentation
-- `README.md` - Project documentation and setup instructions
+- `README.md` - Project documentation and setup instructions ✓
 - `src/index.ts` - Main operator entry point with Express server, health endpoints, and K8s client setup ✓
-- `src/controllers/domain-controller.ts` - Domain CRD reconciliation logic and Takaro API integration
+- `src/controllers/base-controller.ts` - Abstract base controller with watch and reconciliation loop ✓
+- `src/controllers/domain-controller.ts` - Domain CRD reconciliation logic and Takaro API integration ✓
+- `src/controllers/registry.ts` - Controller registry for managing multiple controllers ✓
 - `src/controllers/mockserver-controller.ts` - MockServer CRD reconciliation and deployment management
 - `src/controllers/user-controller.ts` - User CRD reconciliation and user provisioning logic
 - `src/apis/v1/domain.ts` - Domain CRD TypeScript definitions and schema ✓
@@ -76,7 +78,7 @@
 - `src/services/kubernetes-service.ts` - Helper service for K8s resource management
 - `src/utils/status-updater.ts` - Utility for updating CRD status conditions
 - `src/utils/metrics.ts` - Prometheus metrics configuration and helpers
-- `src/config/index.ts` - Configuration management for environment variables ✓
+- `src/config/index.ts` - Configuration management for environment variables with Zod validation ✓
 - `helm/takaro-operator/Chart.yaml` - Helm chart definition
 - `helm/takaro-operator/values.yaml` - Default Helm values with Redis dependency
 - `helm/takaro-operator/templates/deployment.yaml` - Operator deployment manifest
