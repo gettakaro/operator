@@ -4,11 +4,6 @@ import { BaseController } from './base-controller.js';
 export class ControllerRegistry {
   private controllers: Map<string, BaseController> = new Map();
 
-  constructor(_kc: k8s.KubeConfig) {
-    // KubeConfig is passed but not stored as it's not currently needed
-    // Controllers manage their own KubeConfig instances
-  }
-
   register(name: string, controller: BaseController): void {
     if (this.controllers.has(name)) {
       throw new Error(`Controller '${name}' is already registered`);
