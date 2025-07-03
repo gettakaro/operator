@@ -8,14 +8,14 @@
   - [x] 1.5 Implement basic reconciliation loop structure with controller registration
   - [x] 1.6 Add configuration management for API endpoints and credentials via environment variables
 
-- [ ] 2.0 Implement Domain CRD with Takaro API integration
-  - [ ] 2.1 [depends on: 1.0] Create Takaro client service wrapper using @takaro/apiclient
-  - [ ] 2.2 [depends on: 2.1] Implement domain creation logic with externalReferenceId tracking
-  - [ ] 2.3 [depends on: 2.2] Add secret creation for registration token and root user credentials
-  - [ ] 2.4 [depends on: 2.2] Implement domain update reconciliation (limits, maintenance mode)
-  - [ ] 2.5 [depends on: 2.2] Add domain deletion with proper cleanup in Takaro
-  - [ ] 2.6 [depends on: 2.1] Implement status reporting with conditions (Ready, Error, Synced)
-  - [ ] 2.7 [depends on: 2.6] Add integration tests for domain lifecycle operations
+- [x] 2.0 Implement Domain CRD with Takaro API integration
+  - [x] 2.1 [depends on: 1.0] Create Takaro client service wrapper using @takaro/apiclient
+  - [x] 2.2 [depends on: 2.1] Implement domain creation logic with externalReferenceId tracking
+  - [x] 2.3 [depends on: 2.2] Add secret creation for registration token and root user credentials
+  - [x] 2.4 [depends on: 2.2] Implement domain update reconciliation (limits, maintenance mode)
+  - [x] 2.5 [depends on: 2.2] Add domain deletion with proper cleanup in Takaro
+  - [x] 2.6 [depends on: 2.1] Implement status reporting with conditions (Ready, Error, Synced)
+  - [x] 2.7 [depends on: 2.6] Add integration tests for domain lifecycle operations
 
 - [ ] 3.0 Implement MockServer CRD with Kubernetes deployment creation
   - [ ] 3.1 [depends on: 1.3] Define MockServer CRD schema with simulation configuration fields
@@ -74,9 +74,9 @@
 - `src/apis/v1/domain.ts` - Domain CRD TypeScript definitions and schema ✓
 - `src/apis/v1/mockserver.ts` - MockServer CRD TypeScript definitions and schema
 - `src/apis/v1/user.ts` - User CRD TypeScript definitions and schema
-- `src/services/takaro-client.ts` - Wrapper service for @takaro/apiclient with error handling
+- `src/services/takaro-client.ts` - Wrapper service for @takaro/apiclient with error handling ✓
 - `src/services/kubernetes-service.ts` - Helper service for K8s resource management
-- `src/utils/status-updater.ts` - Utility for updating CRD status conditions
+- `src/utils/status-updater.ts` - Utility for updating CRD status conditions ✓
 - `src/utils/metrics.ts` - Prometheus metrics configuration and helpers
 - `src/config/index.ts` - Configuration management for environment variables with Zod validation ✓
 - `helm/takaro-operator/Chart.yaml` - Helm chart definition
@@ -84,7 +84,7 @@
 - `helm/takaro-operator/templates/deployment.yaml` - Operator deployment manifest
 - `helm/takaro-operator/templates/rbac.yaml` - RBAC rules for multi-namespace access
 - `helm/takaro-operator/templates/crds/` - CRD installation templates
-- `test/integration/domain-lifecycle.test.ts` - Domain CRD integration tests
+- `test/integration/domain-lifecycle.test.ts` - Domain CRD integration tests ✓
 - `test/integration/mockserver-lifecycle.test.ts` - MockServer CRD integration tests
 - `test/integration/user-lifecycle.test.ts` - User CRD integration tests
 - `test/e2e/full-environment.test.ts` - End-to-end test for complete environment setup

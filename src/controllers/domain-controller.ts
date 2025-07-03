@@ -1,16 +1,25 @@
 import * as k8s from '@kubernetes/client-node';
 import { BaseController, ReconcileResult } from './base-controller.js';
-import { Domain, DomainCondition, DOMAIN_GROUP, DOMAIN_VERSION, DOMAIN_PLURAL } from '../apis/v1/domain.js';
+import { Domain, DomainCondition, DomainStatus, DOMAIN_GROUP, DOMAIN_VERSION, DOMAIN_PLURAL } from '../apis/v1/domain.js';
+import { TakaroClient, TakaroClientError } from '../services/takaro-client.js';
+import { StatusUpdater } from '../utils/status-updater.js';
+import { loadConfig } from '../config/index.js';
+
+const FINALIZER_NAME = 'takaro.io/domain-protection';
 
 export class DomainController extends BaseController {
+  private takaroClient: TakaroClient;
+
   constructor(kc: k8s.KubeConfig, namespace?: string) {
     super(kc, {
       group: DOMAIN_GROUP,
       version: DOMAIN_VERSION,
       plural: DOMAIN_PLURAL,
       namespace,
-      reconcileInterval: 30000,
     });
+
+    const config = loadConfig();
+    this.takaroClient = new TakaroClient(config.takaroApiUrl, config.takaroApiToken);
   }
 
   protected async reconcile(namespace: string, name: string): Promise<ReconcileResult> {
@@ -23,18 +32,13 @@ export class DomainController extends BaseController {
     }
 
     try {
-      console.log(`Domain ${namespace}/${name} state:`, {
-        phase: domain.status?.phase || 'Unknown',
-        conditions: domain.status?.conditions?.length || 0,
-        spec: {
-          name: domain.spec.name,
-          limits: domain.spec.limits,
-          settings: domain.spec.settings,
-        },
-      });
+      if (domain.metadata?.deletionTimestamp) {
+        return await this.handleDeletion(domain);
+      }
+
+      await this.ensureFinalizer(domain);
 
       const updatedStatus = await this.reconcileDomain(domain);
-      
       await this.updateResourceStatus(namespace, name, updatedStatus);
 
       return {
@@ -46,16 +50,23 @@ export class DomainController extends BaseController {
       
       try {
         const domain = await this.getResource(namespace, name) as Domain | null;
-        const existingConditions = domain?.status?.conditions || [];
-        await this.updateResourceStatus(namespace, name, {
-          conditions: this.updateCondition(existingConditions, {
-            type: 'Error',
-            status: 'True',
-            reason: 'ReconcileError',
-            message: error instanceof Error ? error.message : 'Unknown error occurred',
-          }),
-          lastReconcileTime: new Date().toISOString(),
-        });
+        if (domain) {
+          const conditions = domain.status?.conditions || [];
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+          
+          await this.updateResourceStatus(namespace, name, {
+            ...domain.status,
+            phase: 'Error',
+            conditions: StatusUpdater.updateCondition(
+              conditions,
+              'Error',
+              'True',
+              'ReconcileError',
+              errorMessage
+            ) as DomainCondition[],
+            lastReconcileTime: new Date().toISOString(),
+          });
+        }
       } catch (updateError) {
         console.error('Failed to update error status:', updateError);
       }
@@ -67,104 +78,299 @@ export class DomainController extends BaseController {
     }
   }
 
-  private async reconcileDomain(domain: Domain): Promise<any> {
+  private async reconcileDomain(domain: Domain): Promise<DomainStatus> {
     const currentPhase = domain.status?.phase || 'Pending';
-    const conditions = domain.status?.conditions || [];
-
+    let conditions = domain.status?.conditions || [];
     let newPhase = currentPhase;
-    let newConditions = [...conditions];
+    let externalReferenceId = domain.status?.externalReferenceId;
+    let registrationToken = domain.status?.registrationToken;
+    let rootUserCredentials = domain.status?.rootUserCredentials;
 
-    if (currentPhase === 'Pending') {
-      newPhase = 'Provisioning';
-      newConditions = this.updateCondition(newConditions, {
-        type: 'Ready',
-        status: 'False',
-        reason: 'Provisioning',
-        message: 'Domain is being provisioned',
-      });
-    } else if (currentPhase === 'Provisioning') {
-      const readyCondition = conditions.find(c => c.type === 'Ready');
-      if (readyCondition && this.isConditionOld(readyCondition, 30)) {
-        newPhase = 'Active';
-        newConditions = this.updateCondition(newConditions, {
-          type: 'Ready',
-          status: 'True',
-          reason: 'Provisioned',
-          message: 'Domain has been successfully provisioned',
-        });
+    const specLimits = domain.spec.limits;
+    const specSettings = domain.spec.settings;
+
+    if (!externalReferenceId) {
+      console.log(`Creating domain ${domain.spec.name} in Takaro`);
+      newPhase = 'Creating';
+      
+      try {
+        const takaroDomain = await this.takaroClient.createDomain(
+          domain.spec.name,
+          specLimits,
+          specSettings
+        );
+        
+        externalReferenceId = takaroDomain.id;
+        
+        registrationToken = await this.takaroClient.generateRegistrationToken(takaroDomain.id);
+        
+        const rootUser = await this.takaroClient.createRootUser(takaroDomain.id);
+        
+        await this.createSecrets(domain, registrationToken, rootUser);
+        
+        rootUserCredentials = {
+          username: rootUser.username,
+          secretName: `${domain.metadata?.name}-root-credentials`,
+        };
+        
+        newPhase = 'Ready';
+        conditions = StatusUpdater.updateCondition(
+          conditions,
+          'Ready',
+          'True',
+          'DomainCreated',
+          'Domain has been successfully created in Takaro'
+        ) as DomainCondition[];
+        conditions = StatusUpdater.updateCondition(
+          conditions,
+          'Synced',
+          'True',
+          'SpecSynced',
+          'Domain configuration is synchronized with Takaro'
+        ) as DomainCondition[];
+        conditions = StatusUpdater.updateCondition(
+          conditions,
+          'Error',
+          'False',
+          'NoError',
+          'No errors'
+        ) as DomainCondition[];
+      } catch (error) {
+        console.error('Failed to create domain:', error);
+        newPhase = 'Error';
+        const errorMessage = error instanceof TakaroClientError ? error.message : 'Failed to create domain';
+        
+        conditions = StatusUpdater.updateCondition(
+          conditions,
+          'Ready',
+          'False',
+          'CreateFailed',
+          errorMessage
+        ) as DomainCondition[];
+        conditions = StatusUpdater.updateCondition(
+          conditions,
+          'Error',
+          'True',
+          'CreateError',
+          errorMessage
+        ) as DomainCondition[];
+        
+        throw error;
       }
-    } else if (currentPhase === 'Active') {
-      const maintenanceMode = domain.spec.settings?.maintenanceMode;
-      if (maintenanceMode) {
-        newPhase = 'Maintenance';
-        newConditions = this.updateCondition(newConditions, {
-          type: 'Ready',
-          status: 'False',
-          reason: 'MaintenanceMode',
-          message: 'Domain is in maintenance mode',
-        });
+    } else {
+      const hasSpecChanged = this.hasSpecChanged(domain);
+      
+      if (hasSpecChanged) {
+        console.log(`Updating domain ${externalReferenceId} in Takaro`);
+        
+        try {
+          await this.takaroClient.updateDomain(
+            externalReferenceId,
+            specLimits,
+            specSettings
+          );
+          
+          conditions = StatusUpdater.updateCondition(
+            conditions,
+            'Synced',
+            'True',
+            'SpecSynced',
+            'Domain configuration has been updated in Takaro'
+          ) as DomainCondition[];
+        } catch (error) {
+          console.error('Failed to update domain:', error);
+          const errorMessage = error instanceof TakaroClientError ? error.message : 'Failed to update domain';
+          
+          conditions = StatusUpdater.updateCondition(
+            conditions,
+            'Synced',
+            'False',
+            'UpdateFailed',
+            errorMessage
+          ) as DomainCondition[];
+          conditions = StatusUpdater.updateCondition(
+            conditions,
+            'Error',
+            'True',
+            'UpdateError',
+            errorMessage
+          ) as DomainCondition[];
+          
+          throw error;
+        }
       }
-    } else if (currentPhase === 'Maintenance') {
-      const maintenanceMode = domain.spec.settings?.maintenanceMode;
-      if (!maintenanceMode) {
-        newPhase = 'Active';
-        newConditions = this.updateCondition(newConditions, {
-          type: 'Ready',
-          status: 'True',
-          reason: 'MaintenanceComplete',
-          message: 'Domain maintenance completed',
-        });
+      
+      if (newPhase !== 'Ready' && newPhase !== 'Error') {
+        newPhase = 'Ready';
+        conditions = StatusUpdater.updateCondition(
+          conditions,
+          'Ready',
+          'True',
+          'DomainReady',
+          'Domain is ready'
+        ) as DomainCondition[];
       }
     }
-
-    if (!conditions.some(c => c.type === 'Synced')) {
-      newConditions = this.updateCondition(newConditions, {
-        type: 'Synced',
-        status: 'True',
-        reason: 'Synchronized',
-        message: 'Domain configuration is synchronized',
-      });
-    }
-
 
     return {
       phase: newPhase,
-      conditions: newConditions,
+      conditions,
+      externalReferenceId,
+      registrationToken,
+      rootUserCredentials,
       lastReconcileTime: new Date().toISOString(),
       observedGeneration: domain.metadata?.generation,
     };
   }
 
-  private updateCondition(conditions: DomainCondition[], newCondition: Omit<DomainCondition, 'lastTransitionTime'>): DomainCondition[] {
-    const now = new Date().toISOString();
-    const existingIndex = conditions.findIndex(c => c.type === newCondition.type);
+  private async handleDeletion(domain: Domain): Promise<ReconcileResult> {
+    console.log(`Handling deletion for Domain ${domain.metadata?.namespace}/${domain.metadata?.name}`);
 
-    if (existingIndex === -1) {
-      return [...conditions, {
-        ...newCondition,
-        lastTransitionTime: now,
-      }];
+    const hasFinalizer = domain.metadata?.finalizers?.includes(FINALIZER_NAME);
+    if (!hasFinalizer) {
+      return {};
     }
 
-    const existing = conditions[existingIndex];
-    const hasChanged = existing.status !== newCondition.status;
+    if (domain.status?.externalReferenceId) {
+      try {
+        await this.updateResourceStatus(domain.metadata!.namespace!, domain.metadata!.name!, {
+          ...domain.status,
+          phase: 'Deleting',
+        });
 
-    const updated: DomainCondition = {
-      ...newCondition,
-      lastTransitionTime: hasChanged ? now : existing.lastTransitionTime,
-    };
+        await this.takaroClient.deleteDomain(domain.status.externalReferenceId);
+        console.log(`Successfully deleted domain ${domain.status.externalReferenceId} from Takaro`);
+      } catch (error) {
+        console.error('Failed to delete domain from Takaro:', error);
+        if (error instanceof TakaroClientError && error.statusCode !== 404) {
+          return {
+            requeue: true,
+            requeueAfter: 5000,
+          };
+        }
+      }
+    }
 
-    return [
-      ...conditions.slice(0, existingIndex),
-      updated,
-      ...conditions.slice(existingIndex + 1),
-    ];
+    await this.removeFinalizer(domain);
+    return {};
   }
 
-  private isConditionOld(condition: DomainCondition, seconds: number): boolean {
-    const conditionTime = new Date(condition.lastTransitionTime);
-    const now = new Date();
-    const ageInSeconds = (now.getTime() - conditionTime.getTime()) / 1000;
-    return ageInSeconds > seconds;
+  private async ensureFinalizer(domain: Domain): Promise<void> {
+    const hasFinalizer = domain.metadata?.finalizers?.includes(FINALIZER_NAME);
+    if (!hasFinalizer) {
+      console.log(`Adding finalizer to Domain ${domain.metadata?.namespace}/${domain.metadata?.name}`);
+      
+      const patch = {
+        metadata: {
+          finalizers: [...(domain.metadata?.finalizers || []), FINALIZER_NAME],
+        },
+      };
+
+      await this.customObjectsApi.patchNamespacedCustomObject({
+        group: DOMAIN_GROUP,
+        version: DOMAIN_VERSION,
+        namespace: domain.metadata!.namespace!,
+        plural: DOMAIN_PLURAL,
+        name: domain.metadata!.name!,
+        body: patch,
+      });
+    }
+  }
+
+  private async removeFinalizer(domain: Domain): Promise<void> {
+    console.log(`Removing finalizer from Domain ${domain.metadata?.namespace}/${domain.metadata?.name}`);
+    
+    const finalizers = (domain.metadata?.finalizers || []).filter(f => f !== FINALIZER_NAME);
+    
+    const patch = {
+      metadata: {
+        finalizers,
+      },
+    };
+
+    await this.customObjectsApi.patchNamespacedCustomObject({
+      group: DOMAIN_GROUP,
+      version: DOMAIN_VERSION,
+      namespace: domain.metadata!.namespace!,
+      plural: DOMAIN_PLURAL,
+      name: domain.metadata!.name!,
+      body: patch,
+    });
+  }
+
+  private async createSecrets(domain: Domain, registrationToken: string, rootUser: { username: string; password: string }): Promise<void> {
+    const namespace = domain.metadata!.namespace!;
+    const domainName = domain.metadata!.name!;
+
+    const tokenSecret: k8s.V1Secret = {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: {
+        name: `${domainName}-registration-token`,
+        namespace,
+        ownerReferences: [{
+          apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
+          kind: 'Domain',
+          name: domainName,
+          uid: domain.metadata!.uid!,
+          controller: true,
+          blockOwnerDeletion: true,
+        }],
+      },
+      type: 'Opaque',
+      data: {
+        token: Buffer.from(registrationToken).toString('base64'),
+      },
+    };
+
+    const credentialsSecret: k8s.V1Secret = {
+      apiVersion: 'v1',
+      kind: 'Secret',
+      metadata: {
+        name: `${domainName}-root-credentials`,
+        namespace,
+        ownerReferences: [{
+          apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
+          kind: 'Domain',
+          name: domainName,
+          uid: domain.metadata!.uid!,
+          controller: true,
+          blockOwnerDeletion: true,
+        }],
+      },
+      type: 'Opaque',
+      data: {
+        username: Buffer.from(rootUser.username).toString('base64'),
+        password: Buffer.from(rootUser.password).toString('base64'),
+      },
+    };
+
+    try {
+      await this.coreApi.createNamespacedSecret({ namespace, body: tokenSecret });
+      console.log(`Created registration token secret for domain ${domainName}`);
+    } catch (error: any) {
+      if (error.statusCode !== 409) {
+        throw error;
+      }
+      console.log(`Registration token secret already exists for domain ${domainName}`);
+    }
+
+    try {
+      await this.coreApi.createNamespacedSecret({ namespace, body: credentialsSecret });
+      console.log(`Created root credentials secret for domain ${domainName}`);
+    } catch (error: any) {
+      if (error.statusCode !== 409) {
+        throw error;
+      }
+      console.log(`Root credentials secret already exists for domain ${domainName}`);
+    }
+  }
+
+  private hasSpecChanged(domain: Domain): boolean {
+    if (!domain.status?.observedGeneration) {
+      return true;
+    }
+    
+    return domain.metadata?.generation !== domain.status.observedGeneration;
   }
 }

@@ -233,9 +233,6 @@ export abstract class BaseController {
         body: {
           status,
         },
-        headers: {
-          'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH,
-        },
       });
     } catch (error) {
       console.error(`Failed to update status for ${namespace}/${name}:`, error);
