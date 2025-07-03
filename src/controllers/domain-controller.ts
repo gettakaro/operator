@@ -90,17 +90,18 @@ export class DomainController extends BaseController {
     const specSettings = domain.spec.settings;
 
     if (!externalReferenceId) {
-      console.log(`Creating domain ${domain.spec.name} in Takaro`);
+      // Generate our own external reference ID
+      externalReferenceId = this.generateExternalReferenceId(domain);
+      console.log(`Creating domain ${domain.spec.name} in Takaro with external reference: ${externalReferenceId}`);
       newPhase = 'Creating';
       
       try {
         const takaroDomain = await this.takaroClient.createDomain(
           domain.spec.name,
+          externalReferenceId,
           specLimits,
           specSettings
         );
-        
-        externalReferenceId = takaroDomain.id;
         
         registrationToken = await this.takaroClient.generateRegistrationToken(takaroDomain.id);
         
@@ -233,7 +234,10 @@ export class DomainController extends BaseController {
 
     if (domain.status?.externalReferenceId) {
       try {
-        await this.updateResourceStatus(domain.metadata!.namespace!, domain.metadata!.name!, {
+        if (!domain.metadata?.namespace || !domain.metadata?.name) {
+          throw new Error('Domain metadata is missing namespace or name');
+        }
+        await this.updateResourceStatus(domain.metadata.namespace, domain.metadata.name, {
           ...domain.status,
           phase: 'Deleting',
         });
@@ -269,9 +273,9 @@ export class DomainController extends BaseController {
       await this.customObjectsApi.patchNamespacedCustomObject({
         group: DOMAIN_GROUP,
         version: DOMAIN_VERSION,
-        namespace: domain.metadata!.namespace!,
+        namespace: domain.metadata?.namespace || '',
         plural: DOMAIN_PLURAL,
-        name: domain.metadata!.name!,
+        name: domain.metadata?.name || '',
         body: patch,
       });
     }
@@ -291,16 +295,19 @@ export class DomainController extends BaseController {
     await this.customObjectsApi.patchNamespacedCustomObject({
       group: DOMAIN_GROUP,
       version: DOMAIN_VERSION,
-      namespace: domain.metadata!.namespace!,
+      namespace: domain.metadata?.namespace || '',
       plural: DOMAIN_PLURAL,
-      name: domain.metadata!.name!,
+      name: domain.metadata?.name || '',
       body: patch,
     });
   }
 
   private async createSecrets(domain: Domain, registrationToken: string, rootUser: { username: string; password: string }): Promise<void> {
-    const namespace = domain.metadata!.namespace!;
-    const domainName = domain.metadata!.name!;
+    if (!domain.metadata?.namespace || !domain.metadata?.name || !domain.metadata?.uid) {
+      throw new Error('Domain metadata is missing required fields');
+    }
+    const namespace = domain.metadata.namespace;
+    const domainName = domain.metadata.name;
 
     const tokenSecret: k8s.V1Secret = {
       apiVersion: 'v1',
@@ -312,7 +319,7 @@ export class DomainController extends BaseController {
           apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
           kind: 'Domain',
           name: domainName,
-          uid: domain.metadata!.uid!,
+          uid: domain.metadata.uid,
           controller: true,
           blockOwnerDeletion: true,
         }],
@@ -333,7 +340,7 @@ export class DomainController extends BaseController {
           apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
           kind: 'Domain',
           name: domainName,
-          uid: domain.metadata!.uid!,
+          uid: domain.metadata.uid,
           controller: true,
           blockOwnerDeletion: true,
         }],
@@ -372,5 +379,19 @@ export class DomainController extends BaseController {
     }
     
     return domain.metadata?.generation !== domain.status.observedGeneration;
+  }
+
+  private generateExternalReferenceId(domain: Domain): string {
+    if (!domain.metadata?.namespace || !domain.metadata?.name || !domain.metadata?.uid) {
+      throw new Error('Domain metadata is missing required fields');
+    }
+    const namespace = domain.metadata.namespace;
+    const name = domain.metadata.name;
+    const uid = domain.metadata.uid;
+    
+    // Take first 8 characters of UID for uniqueness while keeping ID manageable
+    const shortUid = uid.substring(0, 8);
+    
+    return `k8s-operator-${namespace}-${name}-${shortUid}`;
   }
 }

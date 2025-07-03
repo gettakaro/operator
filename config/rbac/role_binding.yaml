@@ -1,0 +1,12 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: takaro-operator
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: takaro-operator
+subjects:
+- kind: ServiceAccount
+  name: takaro-operator
+  namespace: takaro-system

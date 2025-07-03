@@ -42,6 +42,7 @@ export class ControllerRegistry {
     }
   }
 
+
   async stopAll(): Promise<void> {
     console.log('Stopping all controllers...');
     const controllers = this.getAll();

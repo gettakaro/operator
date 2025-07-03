@@ -71,15 +71,25 @@ export class TakaroClient {
 
   async createDomain(
     name: string,
+    externalReferenceId: string,
     limits?: TakaroDomainLimits,
     settings?: TakaroDomainSettings
   ): Promise<TakaroDomain> {
-    console.log(`Creating domain: ${name}`);
+    console.log(`Creating domain: ${name} with external reference: ${externalReferenceId}`);
 
     const input: DomainCreateInputDTO = {
       name,
+      externalReference: externalReferenceId,
       state: settings?.maintenanceMode ? 'MAINTENANCE' : 'ACTIVE',
     };
+
+    // Add limits if provided
+    if (limits?.maxGameServers) {
+      input.maxGameservers = limits.maxGameServers;
+    }
+    if (limits?.maxUsers) {
+      input.maxUsers = limits.maxUsers;
+    }
 
     try {
       const response = await this.retryOperation(

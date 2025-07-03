@@ -26,7 +26,7 @@ class MockTakaroClient extends TakaroClient {
     this.shouldFailDelete = fail;
   }
 
-  async createDomain(name: string, limits?: any, settings?: any) {
+  async createDomain(name: string, externalReferenceId: string, limits?: any, settings?: any) {
     if (this.shouldFailCreate) {
       throw new Error('Mock create domain failed');
     }
@@ -35,10 +35,13 @@ class MockTakaroClient extends TakaroClient {
     const domain = {
       id: domainId,
       name,
+      externalReference: externalReferenceId,
       limits,
       settings,
     };
     this.domains.set(domainId, domain);
+    // Also store by external reference for testing
+    this.domains.set(externalReferenceId, domain);
     return domain;
   }
 
@@ -175,9 +178,15 @@ describe('Domain Lifecycle Integration Tests', () => {
 
     const status = updatedDomain.body.status as DomainStatus;
     assert.equal(status.phase, 'Ready');
-    assert.ok(status.externalReferenceId?.startsWith('dom-'));
+    assert.ok(status.externalReferenceId?.startsWith('k8s-operator-'));
+    assert.ok(status.externalReferenceId?.includes(TEST_NAMESPACE));
+    assert.ok(status.externalReferenceId?.includes(TEST_DOMAIN_NAME));
     assert.ok(status.registrationToken);
-    assert.equal(status.rootUserCredentials?.username, `root-${status.externalReferenceId?.substring(0, 8)}`);
+    
+    // Extract the domain ID from the stored domain
+    const takaroDomain = await mockTakaroClient.getDomain(status.externalReferenceId!);
+    assert.ok(takaroDomain);
+    assert.equal(status.rootUserCredentials?.username, `root-${takaroDomain.id.substring(0, 8)}`);
     
     const readyCondition = status.conditions?.find(c => c.type === 'Ready');
     assert.equal(readyCondition?.status, 'True');
@@ -269,9 +278,6 @@ describe('Domain Lifecycle Integration Tests', () => {
             maintenanceMode: true,
           },
         },
-      },
-      headers: {
-        'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH,
       },
     });
 

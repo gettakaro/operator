@@ -118,7 +118,7 @@ export abstract class BaseController {
         console.log('Restarting watch due to expired resourceVersion...');
         setTimeout(() => {
           if (this.isRunning) {
-            this.setupWatch();
+            void this.setupWatch();
           }
         }, 1000);
       }
@@ -130,7 +130,7 @@ export abstract class BaseController {
   protected startReconcileLoop(): void {
     const interval = this.options.reconcileInterval || 30000;
     this.reconcileIntervalId = setInterval(() => {
-      this.processReconcileQueue();
+      void this.processReconcileQueue();
     }, interval);
   }
 

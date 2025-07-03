@@ -1,0 +1,77 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: takaro-operator
+rules:
+# Core resources
+- apiGroups: [""]
+  resources:
+  - secrets
+  - configmaps
+  - services
+  - persistentvolumeclaims
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - delete
+
+# Apps resources
+- apiGroups: ["apps"]
+  resources:
+  - deployments
+  - statefulsets
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - delete
+
+# Takaro CRDs
+- apiGroups: ["takaro.io"]
+  resources:
+  - domains
+  - mockservers
+  - users
+  verbs:
+  - create
+  - get
+  - list
+  - patch
+  - update
+  - watch
+  - delete
+
+# Takaro CRD status updates
+- apiGroups: ["takaro.io"]
+  resources:
+  - domains/status
+  - mockservers/status
+  - users/status
+  verbs:
+  - get
+  - patch
+  - update
+
+# Events
+- apiGroups: [""]
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+
+# Finalizers
+- apiGroups: ["takaro.io"]
+  resources:
+  - domains/finalizers
+  - mockservers/finalizers
+  - users/finalizers
+  verbs:
+  - update

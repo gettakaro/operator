@@ -13,7 +13,7 @@ let controllerRegistry: ControllerRegistry;
 let kc: k8s.KubeConfig;
 let isReady = false;
 
-async function initializeKubernetesClient(): Promise<void> {
+function initializeKubernetesClient(): void {
   try {
     kc = new k8s.KubeConfig();
 
@@ -98,7 +98,7 @@ async function startOperator(): Promise<void> {
       reconcileInterval: config.reconcileInterval,
     });
 
-    await initializeKubernetesClient();
+    initializeKubernetesClient();
     await registerControllers();
 
     const server = app.listen(config.port, () => {
@@ -121,8 +121,8 @@ async function startOperator(): Promise<void> {
       });
     };
 
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('Failed to start operator:', error);
     process.exit(1);
@@ -130,7 +130,7 @@ async function startOperator(): Promise<void> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  startOperator();
+  void startOperator();
 }
 
 export { kubeApi, customObjectsApi, config };
