@@ -24,6 +24,7 @@ export abstract class BaseController {
   protected readonly coreApi: k8s.CoreV1Api;
   protected readonly customObjectsApi: k8s.CustomObjectsApi;
   protected readonly options: ControllerOptions;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected informer?: k8s.Informer<any>;
   protected readonly reconcileQueue: Map<string, ReconcileRequest> = new Map();
   protected isRunning = false;
@@ -97,21 +98,28 @@ export abstract class BaseController {
       listFn,
     );
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.informer.on('add', (obj: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       console.log(`Added ${this.options.plural}: ${obj.metadata.namespace}/${obj.metadata.name}`);
       this.enqueueReconcile(obj);
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.informer.on('update', (obj: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       console.log(`Updated ${this.options.plural}: ${obj.metadata.namespace}/${obj.metadata.name}`);
       this.enqueueReconcile(obj);
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.informer.on('delete', (obj: any) => {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       console.log(`Deleted ${this.options.plural}: ${obj.metadata.namespace}/${obj.metadata.name}`);
       this.enqueueReconcile(obj, true);
     });
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.informer.on('error', (err: any) => {
       console.error(`Watch error for ${this.options.plural}:`, err);
       if (err.statusCode === 410) {
