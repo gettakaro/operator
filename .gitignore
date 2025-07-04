@@ -41,3 +41,6 @@ temp/
 # Kubernetes configs
 kubeconfig*
 *.kubeconfig
+
+# Test files (prevent root directory test files)
+test-*.yaml

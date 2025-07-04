@@ -5,11 +5,9 @@ metadata:
   namespace: takaro-system
 spec:
   name: staging-servers
+  externalReference: staging-servers-ref
   limits:
-    maxPlayers: 50
     maxGameServers: 5
     maxUsers: 100
   settings:
     maintenanceMode: true
-    publiclyVisible: false
-    allowRegistration: false

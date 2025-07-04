@@ -8,15 +8,13 @@ metadata:
     team: gameops
 spec:
   name: production-game-servers
+  externalReference: prod-game-servers-ref
   gameServerId: "game-server-123"
   limits:
-    maxPlayers: 1000
     maxGameServers: 20
     maxUsers: 500
   settings:
     maintenanceMode: false
-    publiclyVisible: true
-    allowRegistration: true
   takaroConfig:
     features:
     - advanced-analytics

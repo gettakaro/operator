@@ -5,7 +5,6 @@ metadata:
   namespace: takaro-system
 spec:
   name: simple-domain
+  externalReference: simple-domain-ref
   settings:
     maintenanceMode: false
-    publiclyVisible: true
-    allowRegistration: true
