@@ -49,17 +49,26 @@ jobs:
       - name: Validate CRDs
         run: |
           echo "Validating CRD definitions..."
-          kubectl apply --dry-run=client -f config/crd/
+          for file in config/crd/*.yaml; do
+            echo "Checking $file..."
+            kubeconform -summary -output json -schema-location default -schema-location 'https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/{{.NormalizedKubernetesVersion}}/{{.ResourceKind}}.json' "$file"
+          done
 
       - name: Validate manager deployment
         run: |
           echo "Validating manager deployment..."
-          kubectl apply --dry-run=client -f config/manager/
+          for file in config/manager/*.yaml; do
+            echo "Checking $file..."
+            kubeconform -summary -output json -schema-location default -schema-location 'https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/{{.NormalizedKubernetesVersion}}/{{.ResourceKind}}.json' "$file"
+          done
 
       - name: Validate RBAC
         run: |
           echo "Validating RBAC configuration..."
-          kubectl apply --dry-run=client -f config/rbac/
+          for file in config/rbac/*.yaml; do
+            echo "Checking $file..."
+            kubeconform -summary -output json -schema-location default -schema-location 'https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/{{.NormalizedKubernetesVersion}}/{{.ResourceKind}}.json' "$file"
+          done
 
       - name: Validate examples
         run: |

@@ -316,15 +316,22 @@ export class DomainController extends BaseController {
 
         console.log(`[DEBUG] Patch parameters:`, JSON.stringify(patchParams));
 
-        // Try calling with explicit parameter construction
-        await ((this.customObjectsApi as any).patchNamespacedCustomObject(
+        // Call patchNamespacedCustomObject with proper typing
+        const patchOptions = {
+          headers: { 'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
+        };
+        await this.customObjectsApi.patchNamespacedCustomObject(
           localGroup,
           localVersion,
           domain.metadata?.namespace || '',
           localPlural,
           domain.metadata?.name || '',
           patch,
-        ) as Promise<unknown>);
+          undefined,
+          undefined,
+          undefined,
+          patchOptions
+        );
       } catch (error: any) {
         console.error(`Failed to add finalizer:`, error);
         console.error(`Error details:`, error.response?.body || error.message || error);
@@ -352,14 +359,21 @@ export class DomainController extends BaseController {
     ];
 
     try {
-      await ((this.customObjectsApi as any).patchNamespacedCustomObject(
+      const patchOptions = {
+        headers: { 'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_PATCH },
+      };
+      await this.customObjectsApi.patchNamespacedCustomObject(
         DOMAIN_GROUP,
         DOMAIN_VERSION,
         domain.metadata?.namespace || '',
         DOMAIN_PLURAL,
         domain.metadata?.name || '',
         patch,
-      ) as Promise<unknown>);
+        undefined,
+        undefined,
+        undefined,
+        patchOptions
+      );
     } catch (error: any) {
       console.error(`Failed to remove finalizer:`, error.response?.body || error.message);
       throw error;

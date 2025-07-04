@@ -11,7 +11,7 @@
     "build": "tsc",
     "dev": "nodemon",
     "start": "node dist/index.js",
-    "test": "node --loader tsx --test src/**/*.test.ts",
+    "test": "node --loader tsx --test test/**/*.test.ts",
     "lint": "eslint src --ext .ts",
     "format": "prettier --write 'src/**/*.ts'",
     "typecheck": "tsc --noEmit"

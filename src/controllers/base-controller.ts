@@ -239,15 +239,22 @@ export abstract class BaseController {
         },
       ];
 
-      // Try calling with positional parameters for v1.3.0
-      await ((this.customObjectsApi as any).patchNamespacedCustomObjectStatus(
+      // Call patchNamespacedCustomObjectStatus with proper typing
+      const patchOptions = {
+        headers: { 'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
+      };
+      await this.customObjectsApi.patchNamespacedCustomObjectStatus(
         group,
         version,
         namespace,
         plural,
         name,
         patch,
-      ) as Promise<unknown>);
+        undefined,
+        undefined,
+        undefined,
+        patchOptions
+      );
     } catch (error: any) {
       console.error(`Failed to update status for ${namespace}/${name}:`, error.response?.body || error.message);
       throw error;
