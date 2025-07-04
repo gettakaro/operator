@@ -239,21 +239,14 @@ export abstract class BaseController {
         },
       ];
 
-      // Call patchNamespacedCustomObjectStatus with proper typing
-      const patchOptions = {
-        headers: { 'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH },
-      };
-      await this.customObjectsApi.patchNamespacedCustomObjectStatus(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+      await (this.customObjectsApi as any).patchNamespacedCustomObjectStatus(
         group,
         version,
         namespace,
         plural,
         name,
-        patch,
-        undefined,
-        undefined,
-        undefined,
-        patchOptions
+        patch
       );
     } catch (error: any) {
       console.error(`Failed to update status for ${namespace}/${name}:`, error.response?.body || error.message);
