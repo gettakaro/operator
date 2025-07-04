@@ -1,0 +1,96 @@
+name: Kubernetes Validation
+
+on:
+  pull_request:
+    paths:
+      - '**.yaml'
+      - '**.yml'
+      - 'config/**'
+      - 'examples/**'
+      - 'helm/**'
+
+jobs:
+  validate-yaml:
+    name: Validate YAML
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: |
+          pip install yamllint
+
+      - name: Lint YAML files
+        run: |
+          yamllint -d relaxed \
+            config/ \
+            examples/ \
+            .github/workflows/
+
+  validate-kubernetes:
+    name: Validate Kubernetes Manifests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.0'
+
+      - name: Install kubeconform
+        run: |
+          wget https://github.com/yannh/kubeconform/releases/download/v0.6.6/kubeconform-linux-amd64.tar.gz
+          tar xf kubeconform-linux-amd64.tar.gz
+          sudo mv kubeconform /usr/local/bin
+
+      - name: Validate CRDs
+        run: |
+          echo "Validating CRD definitions..."
+          kubectl apply --dry-run=client -f config/crd/
+
+      - name: Validate manager deployment
+        run: |
+          echo "Validating manager deployment..."
+          kubectl apply --dry-run=client -f config/manager/
+
+      - name: Validate RBAC
+        run: |
+          echo "Validating RBAC configuration..."
+          kubectl apply --dry-run=client -f config/rbac/
+
+      - name: Validate examples
+        run: |
+          echo "Validating example resources..."
+          for file in examples/domains/*.yaml; do
+            echo "Checking $file..."
+            kubeconform -summary -output json -schema-location default -schema-location 'https://raw.githubusercontent.com/yannh/kubernetes-json-schema/master/{{.NormalizedKubernetesVersion}}/{{.ResourceKind}}.json' "$file"
+          done
+
+  validate-helm:
+    name: Validate Helm Chart
+    runs-on: ubuntu-latest
+    if: contains(github.event.pull_request.labels.*.name, 'helm') || contains(github.event.head_commit.message, 'helm')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.15.0'
+
+      - name: Lint Helm chart
+        run: |
+          if [ -d "helm/takaro-operator" ]; then
+            helm lint helm/takaro-operator
+          fi
+
+      - name: Template Helm chart
+        run: |
+          if [ -d "helm/takaro-operator" ]; then
+            helm template takaro-operator helm/takaro-operator > /tmp/rendered.yaml
+            echo "Helm chart rendered successfully"
+          fi
