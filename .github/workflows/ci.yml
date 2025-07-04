@@ -45,6 +45,28 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Install kind
+        run: |
+          # Download kind
+          curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+          chmod +x ./kind
+          sudo mv ./kind /usr/local/bin/kind
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+        with:
+          version: 'v1.30.0'
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster --name test-cluster --wait 300s
+          kubectl cluster-info
+
+      - name: Install CRDs
+        run: |
+          kubectl apply -f config/crd/domain.yaml
+          kubectl wait --for condition=established --timeout=60s crd/domains.takaro.io
+
       - name: Run tests
         run: npm test
 
