@@ -36,7 +36,7 @@ export class TakaroClientError extends Error {
   constructor(
     message: string,
     public readonly statusCode?: number,
-    public readonly originalError?: any
+    public readonly originalError?: any,
   ) {
     super(message);
     this.name = 'TakaroClientError';
@@ -47,6 +47,7 @@ export class TakaroClient {
   private readonly adminClient: AdminClient;
   private readonly userClient: Client;
   private readonly config = loadConfig();
+  private readonly domainPasswords = new Map<string, string>();
 
   constructor(apiUrl?: string, apiToken?: string) {
     const baseUrl = apiUrl || this.config.takaroApiUrl;
@@ -73,7 +74,7 @@ export class TakaroClient {
     name: string,
     externalReferenceId: string,
     limits?: TakaroDomainLimits,
-    settings?: TakaroDomainSettings
+    settings?: TakaroDomainSettings,
   ): Promise<TakaroDomain> {
     console.log(`Creating domain: ${name} with external reference: ${externalReferenceId}`);
 
@@ -94,12 +95,26 @@ export class TakaroClient {
     try {
       const response = await this.retryOperation(
         async () => await this.adminClient.domain.domainControllerCreate(input),
-        { maxRetries: 3 }
+        { maxRetries: 3 },
       );
 
-      const domain = response.data.data;
+      const createOutput = response.data.data;
+      const domain = createOutput.createdDomain;
+
+      // The domain creation response includes the root user and registration token
+      // Store the root user info for later retrieval
+      if (createOutput.rootUser && createOutput.password) {
+        this.domainPasswords.set(
+          domain.externalReference,
+          JSON.stringify({
+            username: createOutput.rootUser.name,
+            password: createOutput.password,
+          }),
+        );
+      }
+
       return {
-        id: domain.id,
+        id: domain.externalReference, // Use external reference as ID
         name: domain.name,
         limits: {
           maxPlayers: limits?.maxPlayers,
@@ -107,23 +122,20 @@ export class TakaroClient {
           maxUsers: limits?.maxUsers,
         },
         settings: {
-          maintenanceMode: domain.state === 'MAINTENANCE',
+          maintenanceMode: settings?.maintenanceMode || false,
         },
+        registrationToken: domain.serverRegistrationToken,
       };
     } catch (error: any) {
       console.error('Failed to create domain:', error);
-      throw new TakaroClientError(
-        `Failed to create domain ${name}`,
-        error.response?.status,
-        error
-      );
+      throw new TakaroClientError(`Failed to create domain ${name}`, error.response?.status, error);
     }
   }
 
   async updateDomain(
     domainId: string,
     limits?: TakaroDomainLimits,
-    settings?: TakaroDomainSettings
+    settings?: TakaroDomainSettings,
   ): Promise<TakaroDomain> {
     console.log(`Updating domain: ${domainId}`);
 
@@ -136,7 +148,7 @@ export class TakaroClient {
     try {
       const response = await this.retryOperation(
         async () => await this.adminClient.domain.domainControllerUpdate(domainId, input),
-        { maxRetries: 3 }
+        { maxRetries: 3 },
       );
 
       const domain = response.data.data;
@@ -154,11 +166,7 @@ export class TakaroClient {
       };
     } catch (error: any) {
       console.error('Failed to update domain:', error);
-      throw new TakaroClientError(
-        `Failed to update domain ${domainId}`,
-        error.response?.status,
-        error
-      );
+      throw new TakaroClientError(`Failed to update domain ${domainId}`, error.response?.status, error);
     }
   }
 
@@ -166,21 +174,16 @@ export class TakaroClient {
     console.log(`Deleting domain: ${domainId}`);
 
     try {
-      await this.retryOperation(
-        async () => await this.adminClient.domain.domainControllerRemove(domainId),
-        { maxRetries: 3 }
-      );
+      await this.retryOperation(async () => await this.adminClient.domain.domainControllerRemove(domainId), {
+        maxRetries: 3,
+      });
     } catch (error: any) {
       console.error('Failed to delete domain:', error);
       if (error.response?.status === 404) {
         console.log('Domain already deleted, ignoring error');
         return;
       }
-      throw new TakaroClientError(
-        `Failed to delete domain ${domainId}`,
-        error.response?.status,
-        error
-      );
+      throw new TakaroClientError(`Failed to delete domain ${domainId}`, error.response?.status, error);
     }
   }
 
@@ -190,7 +193,7 @@ export class TakaroClient {
     try {
       const response = await this.retryOperation(
         async () => await this.adminClient.domain.domainControllerGetOne(domainId),
-        { maxRetries: 2 }
+        { maxRetries: 2 },
       );
 
       const domain = response.data.data;
@@ -207,11 +210,7 @@ export class TakaroClient {
         return null;
       }
       console.error('Failed to get domain:', error);
-      throw new TakaroClientError(
-        `Failed to get domain ${domainId}`,
-        error.response?.status,
-        error
-      );
+      throw new TakaroClientError(`Failed to get domain ${domainId}`, error.response?.status, error);
     }
   }
 
@@ -220,8 +219,8 @@ export class TakaroClient {
 
     try {
       const response = await this.retryOperation(
-        async () => await this.adminClient.domain.domainControllerGetToken(),
-        { maxRetries: 3 }
+        async () => await this.adminClient.domain.domainControllerGetToken({ domainId }),
+        { maxRetries: 3 },
       );
 
       return response.data.data.token;
@@ -230,13 +229,27 @@ export class TakaroClient {
       throw new TakaroClientError(
         `Failed to generate registration token for domain ${domainId}`,
         error.response?.status,
-        error
+        error,
       );
     }
   }
 
+  getRootUserForDomain(domainId: string): TakaroRootUser | null {
+    const storedInfo = this.domainPasswords.get(domainId);
+    if (storedInfo) {
+      return JSON.parse(storedInfo) as TakaroRootUser;
+    }
+    return null;
+  }
+
   async createRootUser(domainId: string): Promise<TakaroRootUser> {
     console.log(`Creating root user for domain: ${domainId}`);
+
+    // First check if we already have root user info from domain creation
+    const existingUser = this.getRootUserForDomain(domainId);
+    if (existingUser) {
+      return existingUser;
+    }
 
     const username = `root-${domainId.substring(0, 8)}`;
     const password = this.generateSecurePassword();
@@ -249,27 +262,17 @@ export class TakaroClient {
 
     try {
       this.userClient.token = this.config.takaroApiToken;
-      
-      await this.retryOperation(
-        async () => await this.userClient.user.userControllerCreate(input),
-        { maxRetries: 3 }
-      );
+
+      await this.retryOperation(async () => await this.userClient.user.userControllerCreate(input), { maxRetries: 3 });
 
       return { username, password };
     } catch (error: any) {
       console.error('Failed to create root user:', error);
-      throw new TakaroClientError(
-        `Failed to create root user for domain ${domainId}`,
-        error.response?.status,
-        error
-      );
+      throw new TakaroClientError(`Failed to create root user for domain ${domainId}`, error.response?.status, error);
     }
   }
 
-  private async retryOperation<T>(
-    operation: () => Promise<T>,
-    options: RetryOptions = {}
-  ): Promise<T> {
+  private async retryOperation<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
     const { maxRetries = 3, baseDelay = 1000, maxDelay = 30000 } = options;
 
     for (let attempt = 0; attempt <= maxRetries; attempt++) {
@@ -305,7 +308,7 @@ export class TakaroClient {
   }
 
   private sleep(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   private generateSecurePassword(): string {

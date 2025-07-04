@@ -6,12 +6,12 @@ dotenv()
 allow_k8s_contexts('kind-takaro')
 
 # Create namespace if it doesn't exist
-k8s_yaml('''
+k8s_yaml(blob('''
 apiVersion: v1
 kind: Namespace
 metadata:
   name: takaro-system
-''')
+'''))
 
 # Create secret for Takaro API credentials
 # These values come from environment variables
@@ -50,7 +50,7 @@ docker_build(
 )
 
 # Apply CRDs
-k8s_yaml('./config/crd/domain.yaml')
+k8s_yaml('./config/crd/domain-simple.yaml')
 
 # Apply RBAC
 k8s_yaml([
@@ -66,11 +66,10 @@ k8s_yaml('./config/manager/deployment.yaml')
 k8s_resource(
     'takaro-operator',
     port_forwards=[
-        '8080:8080',  # HTTP server
-        '9090:9090'   # Metrics
+        '21080:21080',  # HTTP server
+        '21090:21090'   # Metrics
     ],
-    labels=['operator'],
-    resource_deps=['takaro-operator-config']
+    labels=['operator']
 )
 
 # Create a local resource for running tests
@@ -132,6 +131,8 @@ Useful commands:
 - Press 'b' to open the Tilt UI in your browser
 - kubectl get domains -n takaro-system
 - kubectl logs -n takaro-system deployment/takaro-operator -f
+- Operator HTTP: http://localhost:21080
+- Operator Metrics: http://localhost:21090
 
 To create a sample domain, click the 'create-sample-domain' button in the Tilt UI.
 """)

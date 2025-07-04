@@ -1,11 +1,26 @@
 import * as k8s from '@kubernetes/client-node';
 import { BaseController, ReconcileResult } from './base-controller.js';
-import { Domain, DomainCondition, DomainStatus, DOMAIN_GROUP, DOMAIN_VERSION, DOMAIN_PLURAL } from '../apis/v1/domain.js';
+import {
+  Domain,
+  DomainCondition,
+  DomainStatus,
+  DOMAIN_GROUP,
+  DOMAIN_VERSION,
+  DOMAIN_PLURAL,
+} from '../apis/v1/domain.js';
 import { TakaroClient, TakaroClientError } from '../services/takaro-client.js';
 import { StatusUpdater } from '../utils/status-updater.js';
 import { loadConfig } from '../config/index.js';
 
 const FINALIZER_NAME = 'takaro.io/domain-protection';
+
+// Debug: Log constants at import time
+console.log(
+  `[MODULE LOAD] Domain constants: DOMAIN_GROUP=${DOMAIN_GROUP}, DOMAIN_VERSION=${DOMAIN_VERSION}, DOMAIN_PLURAL=${DOMAIN_PLURAL}`,
+);
+console.log(
+  `[DEBUG] Domain constants at import: DOMAIN_GROUP=${DOMAIN_GROUP}, DOMAIN_VERSION=${DOMAIN_VERSION}, DOMAIN_PLURAL=${DOMAIN_PLURAL}`,
+);
 
 export class DomainController extends BaseController {
   private takaroClient: TakaroClient;
@@ -25,7 +40,13 @@ export class DomainController extends BaseController {
   protected async reconcile(namespace: string, name: string): Promise<ReconcileResult> {
     console.log(`Reconciling Domain ${namespace}/${name}`);
 
-    const domain = await this.getResource(namespace, name) as Domain | null;
+    const resource = await this.getResource(namespace, name);
+    console.log(`[DEBUG] Raw resource retrieved:`, resource ? 'Found' : 'Not found');
+    console.log(`[DEBUG] Resource type:`, typeof resource);
+    console.log(`[DEBUG] Resource keys:`, resource ? Object.keys(resource) : 'N/A');
+    console.log(`[DEBUG] Resource content:`, JSON.stringify(resource, null, 2));
+
+    const domain = resource as Domain | null;
     if (!domain) {
       console.log(`Domain ${namespace}/${name} not found, skipping reconciliation`);
       return {};
@@ -47,13 +68,13 @@ export class DomainController extends BaseController {
       };
     } catch (error) {
       console.error(`Error reconciling Domain ${namespace}/${name}:`, error);
-      
+
       try {
-        const domain = await this.getResource(namespace, name) as Domain | null;
+        const domain = (await this.getResource(namespace, name)) as Domain | null;
         if (domain) {
           const conditions = domain.status?.conditions || [];
           const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
-          
+
           await this.updateResourceStatus(namespace, name, {
             ...domain.status,
             phase: 'Error',
@@ -62,7 +83,7 @@ export class DomainController extends BaseController {
               'Error',
               'True',
               'ReconcileError',
-              errorMessage
+              errorMessage,
             ) as DomainCondition[],
             lastReconcileTime: new Date().toISOString(),
           });
@@ -70,7 +91,7 @@ export class DomainController extends BaseController {
       } catch (updateError) {
         console.error('Failed to update error status:', updateError);
       }
-      
+
       return {
         requeue: true,
         requeueAfter: 5000,
@@ -94,113 +115,109 @@ export class DomainController extends BaseController {
       externalReferenceId = this.generateExternalReferenceId(domain);
       console.log(`Creating domain ${domain.spec.name} in Takaro with external reference: ${externalReferenceId}`);
       newPhase = 'Creating';
-      
+
       try {
         const takaroDomain = await this.takaroClient.createDomain(
           domain.spec.name,
           externalReferenceId,
           specLimits,
-          specSettings
+          specSettings,
         );
-        
+
         registrationToken = await this.takaroClient.generateRegistrationToken(takaroDomain.id);
-        
+
         const rootUser = await this.takaroClient.createRootUser(takaroDomain.id);
-        
+
         await this.createSecrets(domain, registrationToken, rootUser);
-        
+
         rootUserCredentials = {
           username: rootUser.username,
           secretName: `${domain.metadata?.name}-root-credentials`,
         };
-        
+
         newPhase = 'Ready';
         conditions = StatusUpdater.updateCondition(
           conditions,
           'Ready',
           'True',
           'DomainCreated',
-          'Domain has been successfully created in Takaro'
+          'Domain has been successfully created in Takaro',
         ) as DomainCondition[];
         conditions = StatusUpdater.updateCondition(
           conditions,
           'Synced',
           'True',
           'SpecSynced',
-          'Domain configuration is synchronized with Takaro'
+          'Domain configuration is synchronized with Takaro',
         ) as DomainCondition[];
         conditions = StatusUpdater.updateCondition(
           conditions,
           'Error',
           'False',
           'NoError',
-          'No errors'
+          'No errors',
         ) as DomainCondition[];
       } catch (error) {
         console.error('Failed to create domain:', error);
         newPhase = 'Error';
         const errorMessage = error instanceof TakaroClientError ? error.message : 'Failed to create domain';
-        
+
         conditions = StatusUpdater.updateCondition(
           conditions,
           'Ready',
           'False',
           'CreateFailed',
-          errorMessage
+          errorMessage,
         ) as DomainCondition[];
         conditions = StatusUpdater.updateCondition(
           conditions,
           'Error',
           'True',
           'CreateError',
-          errorMessage
+          errorMessage,
         ) as DomainCondition[];
-        
+
         throw error;
       }
     } else {
       const hasSpecChanged = this.hasSpecChanged(domain);
-      
+
       if (hasSpecChanged) {
         console.log(`Updating domain ${externalReferenceId} in Takaro`);
-        
+
         try {
-          await this.takaroClient.updateDomain(
-            externalReferenceId,
-            specLimits,
-            specSettings
-          );
-          
+          await this.takaroClient.updateDomain(externalReferenceId, specLimits, specSettings);
+
           conditions = StatusUpdater.updateCondition(
             conditions,
             'Synced',
             'True',
             'SpecSynced',
-            'Domain configuration has been updated in Takaro'
+            'Domain configuration has been updated in Takaro',
           ) as DomainCondition[];
         } catch (error) {
           console.error('Failed to update domain:', error);
           const errorMessage = error instanceof TakaroClientError ? error.message : 'Failed to update domain';
-          
+
           conditions = StatusUpdater.updateCondition(
             conditions,
             'Synced',
             'False',
             'UpdateFailed',
-            errorMessage
+            errorMessage,
           ) as DomainCondition[];
           conditions = StatusUpdater.updateCondition(
             conditions,
             'Error',
             'True',
             'UpdateError',
-            errorMessage
+            errorMessage,
           ) as DomainCondition[];
-          
+
           throw error;
         }
       }
-      
+
       if (newPhase !== 'Ready' && newPhase !== 'Error') {
         newPhase = 'Ready';
         conditions = StatusUpdater.updateCondition(
@@ -208,7 +225,7 @@ export class DomainController extends BaseController {
           'Ready',
           'True',
           'DomainReady',
-          'Domain is ready'
+          'Domain is ready',
         ) as DomainCondition[];
       }
     }
@@ -263,46 +280,94 @@ export class DomainController extends BaseController {
     const hasFinalizer = domain.metadata?.finalizers?.includes(FINALIZER_NAME);
     if (!hasFinalizer) {
       console.log(`Adding finalizer to Domain ${domain.metadata?.namespace}/${domain.metadata?.name}`);
-      
-      const patch = {
-        metadata: {
-          finalizers: [...(domain.metadata?.finalizers || []), FINALIZER_NAME],
-        },
-      };
+      console.log(
+        `[DEBUG] Domain constants: DOMAIN_GROUP=${DOMAIN_GROUP}, DOMAIN_VERSION=${DOMAIN_VERSION}, DOMAIN_PLURAL=${DOMAIN_PLURAL}`,
+      );
 
-      await this.customObjectsApi.patchNamespacedCustomObject({
-        group: DOMAIN_GROUP,
-        version: DOMAIN_VERSION,
-        namespace: domain.metadata?.namespace || '',
-        plural: DOMAIN_PLURAL,
-        name: domain.metadata?.name || '',
-        body: patch,
-      });
+      // Import constants locally to debug
+      const localGroup = 'takaro.io';
+      const localVersion = 'v1';
+      const localPlural = 'domains';
+
+      console.log(`[DEBUG] Local constants: group=${localGroup}, version=${localVersion}, plural=${localPlural}`);
+      console.log(`[DEBUG] this.options:`, JSON.stringify(this.options));
+
+      // Use JSON Patch format
+      const patch = [
+        {
+          op: 'add',
+          path: '/metadata/finalizers',
+          value: [...(domain.metadata?.finalizers || []), FINALIZER_NAME],
+        },
+      ];
+
+      try {
+        const patchParams = {
+          group: localGroup,
+          version: localVersion,
+          namespace: domain.metadata?.namespace || '',
+          plural: localPlural,
+          name: domain.metadata?.name || '',
+          body: patch,
+        };
+
+        console.log(`[DEBUG] Patch parameters:`, JSON.stringify(patchParams));
+
+        // Try calling with explicit parameter construction
+        await ((this.customObjectsApi as any).patchNamespacedCustomObject(
+          localGroup,
+          localVersion,
+          domain.metadata?.namespace || '',
+          localPlural,
+          domain.metadata?.name || '',
+          patch,
+        ) as Promise<unknown>);
+      } catch (error: any) {
+        console.error(`Failed to add finalizer:`, error);
+        console.error(`Error details:`, error.response?.body || error.message || error);
+        console.error(`Error statusCode:`, error.statusCode);
+        console.error(
+          `DOMAIN_GROUP: ${DOMAIN_GROUP}, DOMAIN_VERSION: ${DOMAIN_VERSION}, DOMAIN_PLURAL: ${DOMAIN_PLURAL}`,
+        );
+        throw error;
+      }
     }
   }
 
   private async removeFinalizer(domain: Domain): Promise<void> {
     console.log(`Removing finalizer from Domain ${domain.metadata?.namespace}/${domain.metadata?.name}`);
-    
-    const finalizers = (domain.metadata?.finalizers || []).filter(f => f !== FINALIZER_NAME);
-    
-    const patch = {
-      metadata: {
-        finalizers,
-      },
-    };
 
-    await this.customObjectsApi.patchNamespacedCustomObject({
-      group: DOMAIN_GROUP,
-      version: DOMAIN_VERSION,
-      namespace: domain.metadata?.namespace || '',
-      plural: DOMAIN_PLURAL,
-      name: domain.metadata?.name || '',
-      body: patch,
-    });
+    const finalizers = (domain.metadata?.finalizers || []).filter((f) => f !== FINALIZER_NAME);
+
+    // Use JSON Patch format
+    const patch = [
+      {
+        op: 'replace',
+        path: '/metadata/finalizers',
+        value: finalizers,
+      },
+    ];
+
+    try {
+      await ((this.customObjectsApi as any).patchNamespacedCustomObject(
+        DOMAIN_GROUP,
+        DOMAIN_VERSION,
+        domain.metadata?.namespace || '',
+        DOMAIN_PLURAL,
+        domain.metadata?.name || '',
+        patch,
+      ) as Promise<unknown>);
+    } catch (error: any) {
+      console.error(`Failed to remove finalizer:`, error.response?.body || error.message);
+      throw error;
+    }
   }
 
-  private async createSecrets(domain: Domain, registrationToken: string, rootUser: { username: string; password: string }): Promise<void> {
+  private async createSecrets(
+    domain: Domain,
+    registrationToken: string,
+    rootUser: { username: string; password: string },
+  ): Promise<void> {
     if (!domain.metadata?.namespace || !domain.metadata?.name || !domain.metadata?.uid) {
       throw new Error('Domain metadata is missing required fields');
     }
@@ -315,14 +380,16 @@ export class DomainController extends BaseController {
       metadata: {
         name: `${domainName}-registration-token`,
         namespace,
-        ownerReferences: [{
-          apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
-          kind: 'Domain',
-          name: domainName,
-          uid: domain.metadata.uid,
-          controller: true,
-          blockOwnerDeletion: true,
-        }],
+        ownerReferences: [
+          {
+            apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
+            kind: 'Domain',
+            name: domainName,
+            uid: domain.metadata.uid,
+            controller: true,
+            blockOwnerDeletion: true,
+          },
+        ],
       },
       type: 'Opaque',
       data: {
@@ -336,14 +403,16 @@ export class DomainController extends BaseController {
       metadata: {
         name: `${domainName}-root-credentials`,
         namespace,
-        ownerReferences: [{
-          apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
-          kind: 'Domain',
-          name: domainName,
-          uid: domain.metadata.uid,
-          controller: true,
-          blockOwnerDeletion: true,
-        }],
+        ownerReferences: [
+          {
+            apiVersion: `${DOMAIN_GROUP}/${DOMAIN_VERSION}`,
+            kind: 'Domain',
+            name: domainName,
+            uid: domain.metadata.uid,
+            controller: true,
+            blockOwnerDeletion: true,
+          },
+        ],
       },
       type: 'Opaque',
       data: {
@@ -377,7 +446,7 @@ export class DomainController extends BaseController {
     if (!domain.status?.observedGeneration) {
       return true;
     }
-    
+
     return domain.metadata?.generation !== domain.status.observedGeneration;
   }
 
@@ -388,10 +457,10 @@ export class DomainController extends BaseController {
     const namespace = domain.metadata.namespace;
     const name = domain.metadata.name;
     const uid = domain.metadata.uid;
-    
+
     // Take first 8 characters of UID for uniqueness while keeping ID manageable
     const shortUid = uid.substring(0, 8);
-    
+
     return `k8s-operator-${namespace}-${name}-${shortUid}`;
   }
 }

@@ -1,0 +1,16 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: test-domain
+  namespace: takaro-system
+spec:
+  name: "Test Domain"
+  externalReference: "test-domain-external-ref"
+  limits:
+    maxPlayers: 100
+    maxGameServers: 5
+    maxUsers: 50
+  settings:
+    maintenanceMode: false
+    publiclyVisible: true
+    allowRegistration: true

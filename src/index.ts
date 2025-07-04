@@ -6,6 +6,7 @@ import { DomainController } from './controllers/domain-controller.js';
 
 const config = loadConfig();
 const app = express();
+// Force rebuild
 
 let kubeApi: k8s.CoreV1Api;
 let customObjectsApi: k8s.CustomObjectsApi;
@@ -38,14 +39,15 @@ function initializeKubernetesClient(): void {
 async function registerControllers(): Promise<void> {
   try {
     console.log('Registering controllers...');
-    
+
     controllerRegistry = new ControllerRegistry(kc);
-    
-    const domainController = new DomainController(kc, config.namespace);
+
+    // Watch all namespaces for now to debug the issue
+    const domainController = new DomainController(kc);
     controllerRegistry.register('domain', domainController);
-    
+
     await controllerRegistry.startAll();
-    
+
     console.log('All controllers registered and started');
     isReady = true;
   } catch (error) {
@@ -109,12 +111,12 @@ async function startOperator(): Promise<void> {
 
     const gracefulShutdown = async (signal: string) => {
       console.log(`Received ${signal}, shutting down gracefully...`);
-      
+
       if (controllerRegistry) {
         console.log('Stopping all controllers...');
         await controllerRegistry.stopAll();
       }
-      
+
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);

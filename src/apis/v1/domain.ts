@@ -2,6 +2,7 @@ import { KubernetesObject, V1ObjectMeta } from '@kubernetes/client-node';
 
 export interface DomainSpec {
   name: string;
+  externalReference: string;
   gameServerId?: string;
   limits?: {
     maxPlayers?: number;
@@ -78,7 +79,7 @@ export const DomainCRDSchema = {
               },
               spec: {
                 type: 'object',
-                required: ['name'],
+                required: ['name', 'externalReference'],
                 properties: {
                   name: {
                     type: 'string',
@@ -86,6 +87,13 @@ export const DomainCRDSchema = {
                     minLength: 1,
                     maxLength: 63,
                     pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$',
+                  },
+                  externalReference: {
+                    type: 'string',
+                    description: 'External reference ID for the domain in Takaro',
+                    minLength: 1,
+                    maxLength: 255,
+                    pattern: '^[a-zA-Z0-9][a-zA-Z0-9-_]*[a-zA-Z0-9]$',
                   },
                   gameServerId: {
                     type: 'string',

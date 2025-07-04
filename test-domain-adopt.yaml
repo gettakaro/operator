@@ -1,0 +1,16 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: test-domain-adopt
+  namespace: takaro-system
+spec:
+  name: "Test Domain"
+  externalReference: "k8s-operator-takaro-system-test-domain-c16b58c0"  # Existing domain to adopt
+  limits:
+    maxPlayers: 100
+    maxGameServers: 5
+    maxUsers: 50
+  settings:
+    maintenanceMode: false
+    publiclyVisible: true
+    allowRegistration: true

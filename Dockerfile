@@ -35,7 +35,7 @@ RUN addgroup -g 1001 -S nodejs && \
 
 USER nodejs
 
-EXPOSE 8080
+EXPOSE 21080
 
 CMD ["node", "dist/index.js"]
 
@@ -56,7 +56,11 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-EXPOSE 8080
+# Create writable temp directory for tsx
+RUN mkdir -p /app/tmp && chmod 777 /app/tmp
+ENV TMPDIR=/app/tmp
+
+EXPOSE 21080
 
 # Use tsx for hot reload in development
 CMD ["tsx", "watch", "src/index.ts"]

@@ -12,10 +12,10 @@ export class StatusUpdater {
     type: string,
     status: 'True' | 'False' | 'Unknown',
     reason: string,
-    message: string
+    message: string,
   ): Condition[] {
     const now = new Date().toISOString();
-    const existingIndex = conditions.findIndex(c => c.type === type);
+    const existingIndex = conditions.findIndex((c) => c.type === type);
 
     const newCondition: Condition = {
       type,
@@ -36,18 +36,14 @@ export class StatusUpdater {
       newCondition.lastTransitionTime = existing.lastTransitionTime;
     }
 
-    return [
-      ...conditions.slice(0, existingIndex),
-      newCondition,
-      ...conditions.slice(existingIndex + 1),
-    ];
+    return [...conditions.slice(0, existingIndex), newCondition, ...conditions.slice(existingIndex + 1)];
   }
 
   static mergeConditions(existing: Condition[], updates: Condition[]): Condition[] {
     const result = [...existing];
 
     for (const update of updates) {
-      const index = result.findIndex(c => c.type === update.type);
+      const index = result.findIndex((c) => c.type === update.type);
       if (index === -1) {
         result.push(update);
       } else {
@@ -89,12 +85,12 @@ export class StatusUpdater {
   }
 
   static isConditionTrue(conditions: Condition[], type: string): boolean {
-    const condition = conditions.find(c => c.type === type);
+    const condition = conditions.find((c) => c.type === type);
     return condition?.status === 'True';
   }
 
   static getCondition(conditions: Condition[], type: string): Condition | undefined {
-    return conditions.find(c => c.type === type);
+    return conditions.find((c) => c.type === type);
   }
 
   static getConditionAge(condition: Condition): number {

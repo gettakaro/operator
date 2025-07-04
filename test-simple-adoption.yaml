@@ -1,0 +1,12 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: test-simple
+  namespace: takaro-system
+spec:
+  name: "Test Simple Domain"
+  externalReference: "simple-test-ref"
+  limits:
+    maxPlayers: 50
+    maxGameServers: 2
+    maxUsers: 25
