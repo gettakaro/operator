@@ -11,6 +11,11 @@ spec:
     schema:
       openAPIV3Schema:
         type: object
+        required:
+        - apiVersion
+        - kind
+        - metadata
+        - spec
         properties:
           apiVersion:
             type: string
@@ -160,11 +165,6 @@ spec:
                 type: integer
                 description: The generation of the spec that was last processed
             additionalProperties: false
-        required:
-        - apiVersion
-        - kind
-        - metadata
-        - spec
         additionalProperties: false
     subresources:
       status: {}
