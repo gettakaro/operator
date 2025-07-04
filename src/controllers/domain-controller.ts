@@ -8,7 +8,7 @@ import {
   DOMAIN_VERSION,
   DOMAIN_PLURAL,
 } from '../apis/v1/domain.js';
-import { TakaroClient, TakaroClientError } from '../services/takaro-client.js';
+import { TakaroClient, TakaroClientError, TakaroRootUser } from '../services/takaro-client.js';
 import { StatusUpdater } from '../utils/status-updater.js';
 import { loadConfig } from '../config/index.js';
 
@@ -126,12 +126,15 @@ export class DomainController extends BaseController {
 
         registrationToken = await this.takaroClient.generateRegistrationToken(takaroDomain.id);
 
-        const rootUser = await this.takaroClient.createRootUser(takaroDomain.id);
+        // Use root user from domain creation response
+        if (!takaroDomain.rootUser) {
+          throw new Error('Domain creation did not return root user credentials');
+        }
 
-        await this.createSecrets(domain, registrationToken, rootUser);
+        await this.createSecrets(domain, registrationToken, takaroDomain.rootUser);
 
         rootUserCredentials = {
-          username: rootUser.username,
+          username: takaroDomain.rootUser.username,
           secretName: `${domain.metadata?.name}-root-credentials`,
         };
 
@@ -462,5 +465,31 @@ export class DomainController extends BaseController {
     const shortUid = uid.substring(0, 8);
 
     return `k8s-operator-${namespace}-${name}-${shortUid}`;
+  }
+
+  // Method to retrieve root credentials from K8s secret when needed
+  // This can be used instead of storing passwords in memory
+  async getRootCredentialsFromSecret(namespace: string, domainName: string): Promise<TakaroRootUser | null> {
+    try {
+      const secretName = `${domainName}-root-credentials`;
+      const secret = await this.coreApi.readNamespacedSecret({
+        name: secretName,
+        namespace,
+      });
+      if (secret.data) {
+        const username = Buffer.from(secret.data.username || '', 'base64').toString();
+        const password = Buffer.from(secret.data.password || '', 'base64').toString();
+
+        if (username && password) {
+          return { username, password };
+        }
+      }
+      return null;
+    } catch (error: any) {
+      if (error.statusCode === 404) {
+        return null;
+      }
+      throw error;
+    }
   }
 }

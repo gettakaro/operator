@@ -1,4 +1,4 @@
-import { AdminClient, Client, DomainCreateInputDTO, DomainUpdateInputDTO, UserCreateInputDTO } from '@takaro/apiclient';
+import { AdminClient, DomainCreateInputDTO, DomainUpdateInputDTO } from '@takaro/apiclient';
 import { loadConfig } from '../config/index.js';
 
 export interface TakaroDomainLimits {
@@ -16,6 +16,7 @@ export interface TakaroDomain {
   limits?: TakaroDomainLimits;
   settings?: TakaroDomainSettings;
   registrationToken?: string;
+  rootUser?: TakaroRootUser;
 }
 
 export interface TakaroRootUser {
@@ -42,9 +43,7 @@ export class TakaroClientError extends Error {
 
 export class TakaroClient {
   private readonly adminClient: AdminClient;
-  private readonly userClient: Client;
   private readonly config = loadConfig();
-  private readonly domainPasswords = new Map<string, string>();
 
   constructor(apiUrl?: string, apiToken?: string) {
     const baseUrl = apiUrl || this.config.takaroApiUrl;
@@ -54,14 +53,6 @@ export class TakaroClient {
       url: baseUrl,
       auth: {
         clientSecret: token,
-      },
-      log: false,
-    });
-
-    this.userClient = new Client({
-      url: baseUrl,
-      auth: {
-        token,
       },
       log: false,
     });
@@ -98,18 +89,6 @@ export class TakaroClient {
       const createOutput = response.data.data;
       const domain = createOutput.createdDomain;
 
-      // The domain creation response includes the root user and registration token
-      // Store the root user info for later retrieval
-      if (createOutput.rootUser && createOutput.password) {
-        this.domainPasswords.set(
-          domain.externalReference,
-          JSON.stringify({
-            username: createOutput.rootUser.name,
-            password: createOutput.password,
-          }),
-        );
-      }
-
       return {
         id: domain.externalReference, // Use external reference as ID
         name: domain.name,
@@ -121,6 +100,13 @@ export class TakaroClient {
           maintenanceMode: settings?.maintenanceMode || false,
         },
         registrationToken: domain.serverRegistrationToken,
+        rootUser:
+          createOutput.rootUser && createOutput.password
+            ? {
+                username: createOutput.rootUser.name,
+                password: createOutput.password,
+              }
+            : undefined,
       };
     } catch (error: any) {
       console.error('Failed to create domain:', error);
@@ -237,44 +223,6 @@ export class TakaroClient {
     }
   }
 
-  getRootUserForDomain(domainId: string): TakaroRootUser | null {
-    const storedInfo = this.domainPasswords.get(domainId);
-    if (storedInfo) {
-      return JSON.parse(storedInfo) as TakaroRootUser;
-    }
-    return null;
-  }
-
-  async createRootUser(domainId: string): Promise<TakaroRootUser> {
-    console.log(`Creating root user for domain: ${domainId}`);
-
-    // First check if we already have root user info from domain creation
-    const existingUser = this.getRootUserForDomain(domainId);
-    if (existingUser) {
-      return existingUser;
-    }
-
-    const username = `root-${domainId.substring(0, 8)}`;
-    const password = this.generateSecurePassword();
-
-    const input: UserCreateInputDTO = {
-      name: username,
-      email: `${username}@takaro-operator.local`,
-      password,
-    };
-
-    try {
-      this.userClient.token = this.config.takaroApiToken;
-
-      await this.retryOperation(async () => await this.userClient.user.userControllerCreate(input), { maxRetries: 3 });
-
-      return { username, password };
-    } catch (error: any) {
-      console.error('Failed to create root user:', error);
-      throw new TakaroClientError(`Failed to create root user for domain ${domainId}`, error.response?.status, error);
-    }
-  }
-
   private async retryOperation<T>(operation: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
     const { maxRetries = 3, baseDelay = 1000, maxDelay = 30000 } = options;
 
@@ -312,14 +260,5 @@ export class TakaroClient {
 
   private sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
-  }
-
-  private generateSecurePassword(): string {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    let password = '';
-    for (let i = 0; i < 24; i++) {
-      password += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    return password;
   }
 }
