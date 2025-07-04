@@ -74,7 +74,7 @@ export abstract class BaseController {
   protected abstract reconcile(namespace: string, name: string): Promise<ReconcileResult>;
 
   protected async setupWatch(): Promise<void> {
-    const listFn = () => {
+    const listFn = (): Promise<{ response: any; body: any }> => {
       const { group, version, plural, namespace } = this.options;
       if (namespace) {
         return this.customObjectsApi.listNamespacedCustomObject({
@@ -122,6 +122,7 @@ export abstract class BaseController {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     this.informer.on('error', (err: any) => {
       console.error(`Watch error for ${this.options.plural}:`, err);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
       if (err.statusCode === 410) {
         console.log('Restarting watch due to expired resourceVersion...');
         setTimeout(() => {
@@ -169,11 +170,16 @@ export abstract class BaseController {
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected enqueueReconcile(obj: any, isDelete = false): void {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
     const key = obj.metadata.namespace ? `${obj.metadata.namespace}/${obj.metadata.name}` : obj.metadata.name;
     const request: ReconcileRequest = {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
       namespace: obj.metadata.namespace || '',
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
       name: obj.metadata.name,
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment
       resourceVersion: obj.metadata.resourceVersion,
     };
 
