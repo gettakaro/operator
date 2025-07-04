@@ -7,10 +7,7 @@ spec:
   name: "test-domain"
   externalReference: "k8s-operator-takaro-system-test-domain-c16b58c0"  # Existing domain to adopt
   limits:
-    maxPlayers: 100
     maxGameServers: 5
     maxUsers: 50
   settings:
     maintenanceMode: false
-    publiclyVisible: true
-    allowRegistration: true

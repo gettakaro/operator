@@ -5,14 +5,11 @@ export interface DomainSpec {
   externalReference: string;
   gameServerId?: string;
   limits?: {
-    maxPlayers?: number;
     maxGameServers?: number;
     maxUsers?: number;
   };
   settings?: {
     maintenanceMode?: boolean;
-    publiclyVisible?: boolean;
-    allowRegistration?: boolean;
   };
   takaroConfig?: {
     apiUrl?: string;
@@ -103,12 +100,6 @@ export const DomainCRDSchema = {
                     type: 'object',
                     description: 'Resource limits for the domain',
                     properties: {
-                      maxPlayers: {
-                        type: 'integer',
-                        minimum: 1,
-                        maximum: 10000,
-                        description: 'Maximum number of players allowed',
-                      },
                       maxGameServers: {
                         type: 'integer',
                         minimum: 1,
@@ -132,16 +123,6 @@ export const DomainCRDSchema = {
                         type: 'boolean',
                         description: 'Whether the domain is in maintenance mode',
                         default: false,
-                      },
-                      publiclyVisible: {
-                        type: 'boolean',
-                        description: 'Whether the domain is publicly visible',
-                        default: true,
-                      },
-                      allowRegistration: {
-                        type: 'boolean',
-                        description: 'Whether user registration is allowed',
-                        default: true,
                       },
                     },
                     additionalProperties: false,

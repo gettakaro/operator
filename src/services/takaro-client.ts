@@ -2,15 +2,12 @@ import { AdminClient, Client, DomainCreateInputDTO, DomainUpdateInputDTO, UserCr
 import { loadConfig } from '../config/index.js';
 
 export interface TakaroDomainLimits {
-  maxPlayers?: number;
   maxGameServers?: number;
   maxUsers?: number;
 }
 
 export interface TakaroDomainSettings {
   maintenanceMode?: boolean;
-  publiclyVisible?: boolean;
-  allowRegistration?: boolean;
 }
 
 export interface TakaroDomain {
@@ -117,7 +114,6 @@ export class TakaroClient {
         id: domain.externalReference, // Use external reference as ID
         name: domain.name,
         limits: {
-          maxPlayers: limits?.maxPlayers,
           maxGameServers: limits?.maxGameServers,
           maxUsers: limits?.maxUsers,
         },
@@ -145,6 +141,14 @@ export class TakaroClient {
       input.state = settings.maintenanceMode ? 'MAINTENANCE' : 'ACTIVE';
     }
 
+    // Add limits if provided
+    if (limits?.maxGameServers !== undefined) {
+      input.maxGameservers = limits.maxGameServers;
+    }
+    if (limits?.maxUsers !== undefined) {
+      input.maxUsers = limits.maxUsers;
+    }
+
     try {
       const response = await this.retryOperation(
         async () => await this.adminClient.domain.domainControllerUpdate(domainId, input),
@@ -156,7 +160,6 @@ export class TakaroClient {
         id: domain.id,
         name: domain.name,
         limits: {
-          maxPlayers: limits?.maxPlayers,
           maxGameServers: limits?.maxGameServers,
           maxUsers: limits?.maxUsers,
         },

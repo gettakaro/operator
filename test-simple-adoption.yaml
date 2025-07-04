@@ -7,6 +7,5 @@ spec:
   name: "test-simple-domain"
   externalReference: "simple-test-ref"
   limits:
-    maxPlayers: 50
     maxGameServers: 2
     maxUsers: 25
