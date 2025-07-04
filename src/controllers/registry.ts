@@ -1,13 +1,7 @@
-import * as k8s from '@kubernetes/client-node';
 import { BaseController } from './base-controller.js';
 
 export class ControllerRegistry {
   private controllers: Map<string, BaseController> = new Map();
-  private kc: k8s.KubeConfig;
-
-  constructor(kc: k8s.KubeConfig) {
-    this.kc = kc;
-  }
 
   register(name: string, controller: BaseController): void {
     if (this.controllers.has(name)) {
@@ -34,11 +28,9 @@ export class ControllerRegistry {
   async startAll(): Promise<void> {
     console.log('Starting all controllers...');
     const controllers = this.getAll();
-    
+
     try {
-      await Promise.all(
-        controllers.map(controller => controller.start())
-      );
+      await Promise.all(controllers.map((controller) => controller.start()));
       console.log('All controllers started successfully');
     } catch (error) {
       console.error('Failed to start controllers:', error);
@@ -50,10 +42,8 @@ export class ControllerRegistry {
   async stopAll(): Promise<void> {
     console.log('Stopping all controllers...');
     const controllers = this.getAll();
-    
-    await Promise.all(
-      controllers.map(controller => controller.stop())
-    );
+
+    await Promise.all(controllers.map((controller) => controller.stop()));
     console.log('All controllers stopped');
   }
 
@@ -75,7 +65,7 @@ export class ControllerRegistry {
 
   getStatus(): Record<string, any> {
     const status: Record<string, any> = {};
-    
+
     for (const [name, controller] of this.controllers) {
       status[name] = {
         name,

@@ -94,7 +94,7 @@ export abstract class BaseController {
     this.informer = k8s.makeInformer(
       this.kc,
       `/apis/${this.options.group}/${this.options.version}/${this.options.namespace ? `namespaces/${this.options.namespace}/` : ''}${this.options.plural}`,
-      listFn
+      listFn,
     );
 
     this.informer.on('add', (obj: any) => {
@@ -118,7 +118,7 @@ export abstract class BaseController {
         console.log('Restarting watch due to expired resourceVersion...');
         setTimeout(() => {
           if (this.isRunning) {
-            this.setupWatch();
+            void this.setupWatch();
           }
         }, 1000);
       }
@@ -130,13 +130,13 @@ export abstract class BaseController {
   protected startReconcileLoop(): void {
     const interval = this.options.reconcileInterval || 30000;
     this.reconcileIntervalId = setInterval(() => {
-      this.processReconcileQueue();
+      void this.processReconcileQueue();
     }, interval);
   }
 
   protected async processReconcileQueue(): Promise<void> {
     const requests = Array.from(this.reconcileQueue.values());
-    
+
     for (const request of requests) {
       const key = `${request.namespace}/${request.name}`;
       this.reconcileQueue.delete(key);
@@ -162,9 +162,7 @@ export abstract class BaseController {
   }
 
   protected enqueueReconcile(obj: any, isDelete = false): void {
-    const key = obj.metadata.namespace 
-      ? `${obj.metadata.namespace}/${obj.metadata.name}`
-      : obj.metadata.name;
+    const key = obj.metadata.namespace ? `${obj.metadata.namespace}/${obj.metadata.name}` : obj.metadata.name;
     const request: ReconcileRequest = {
       namespace: obj.metadata.namespace || '',
       name: obj.metadata.name,
@@ -197,6 +195,10 @@ export abstract class BaseController {
 
   protected async getResource(namespace: string, name: string): Promise<any> {
     const { group, version, plural } = this.options;
+    console.log(
+      `[DEBUG] Getting resource: group=${group}, version=${version}, plural=${plural}, namespace=${namespace}, name=${name}`,
+    );
+
     try {
       const response = namespace
         ? await this.customObjectsApi.getNamespacedCustomObject({
@@ -212,11 +214,15 @@ export abstract class BaseController {
             plural,
             name,
           });
+      console.log(`[DEBUG] Successfully retrieved resource ${namespace}/${name}`);
+      // In newer versions of @kubernetes/client-node, the response is the resource itself
       return response.body;
     } catch (error: any) {
       if (error.statusCode === 404) {
+        console.log(`[DEBUG] Resource ${namespace}/${name} not found (404)`);
         return null;
       }
+      console.error(`[DEBUG] Error getting resource ${namespace}/${name}:`, error.response?.body || error.message);
       throw error;
     }
   }
@@ -224,21 +230,26 @@ export abstract class BaseController {
   protected async updateResourceStatus(namespace: string, name: string, status: any): Promise<void> {
     const { group, version, plural } = this.options;
     try {
-      await this.customObjectsApi.patchNamespacedCustomObjectStatus({
+      // Use JSON Patch format for status updates
+      const patch = [
+        {
+          op: 'replace',
+          path: '/status',
+          value: status,
+        },
+      ];
+
+      // Try calling with positional parameters for v1.3.0
+      await ((this.customObjectsApi as any).patchNamespacedCustomObjectStatus(
         group,
         version,
         namespace,
         plural,
         name,
-        body: {
-          status,
-        },
-        headers: {
-          'Content-Type': k8s.PatchUtils.PATCH_FORMAT_JSON_MERGE_PATCH,
-        },
-      });
-    } catch (error) {
-      console.error(`Failed to update status for ${namespace}/${name}:`, error);
+        patch,
+      ) as Promise<unknown>);
+    } catch (error: any) {
+      console.error(`Failed to update status for ${namespace}/${name}:`, error.response?.body || error.message);
       throw error;
     }
   }

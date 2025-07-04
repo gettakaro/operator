@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: takaro-operator
+  namespace: takaro-system
+  labels:
+    app: takaro-operator
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: takaro-operator
+  template:
+    metadata:
+      labels:
+        app: takaro-operator
+    spec:
+      serviceAccountName: takaro-operator
+      containers:
+      - name: operator
+        image: takaro-operator:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - name: http
+          containerPort: 21080
+          protocol: TCP
+        - name: metrics
+          containerPort: 21090
+          protocol: TCP
+        env:
+        - name: NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: LOG_LEVEL
+          value: "info"
+        - name: TAKARO_API_URL
+          valueFrom:
+            secretKeyRef:
+              name: takaro-operator-config
+              key: api-url
+        - name: TAKARO_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: takaro-operator-config
+              key: api-token
+        - name: RECONCILE_INTERVAL
+          value: "30000"
+        - name: PORT
+          value: "21080"
+        - name: METRICS_PORT
+          value: "21090"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /ready
+            port: http
+          initialDelaySeconds: 5
+          periodSeconds: 5
+        resources:
+          limits:
+            cpu: 500m
+            memory: 256Mi
+          requests:
+            cpu: 100m
+            memory: 128Mi
+        securityContext:
+          allowPrivilegeEscalation: false
+          runAsNonRoot: true
+          runAsUser: 1001
+          capabilities:
+            drop:
+            - ALL

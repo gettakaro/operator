@@ -6,6 +6,7 @@ import { DomainController } from './controllers/domain-controller.js';
 
 const config = loadConfig();
 const app = express();
+// Force rebuild
 
 let kubeApi: k8s.CoreV1Api;
 let customObjectsApi: k8s.CustomObjectsApi;
@@ -13,7 +14,7 @@ let controllerRegistry: ControllerRegistry;
 let kc: k8s.KubeConfig;
 let isReady = false;
 
-async function initializeKubernetesClient(): Promise<void> {
+function initializeKubernetesClient(): void {
   try {
     kc = new k8s.KubeConfig();
 
@@ -38,14 +39,15 @@ async function initializeKubernetesClient(): Promise<void> {
 async function registerControllers(): Promise<void> {
   try {
     console.log('Registering controllers...');
-    
-    controllerRegistry = new ControllerRegistry(kc);
-    
-    const domainController = new DomainController(kc, config.namespace);
+
+    controllerRegistry = new ControllerRegistry();
+
+    // Watch all namespaces for now to debug the issue
+    const domainController = new DomainController(kc);
     controllerRegistry.register('domain', domainController);
-    
+
     await controllerRegistry.startAll();
-    
+
     console.log('All controllers registered and started');
     isReady = true;
   } catch (error) {
@@ -98,7 +100,7 @@ async function startOperator(): Promise<void> {
       reconcileInterval: config.reconcileInterval,
     });
 
-    await initializeKubernetesClient();
+    initializeKubernetesClient();
     await registerControllers();
 
     const server = app.listen(config.port, () => {
@@ -109,20 +111,20 @@ async function startOperator(): Promise<void> {
 
     const gracefulShutdown = async (signal: string) => {
       console.log(`Received ${signal}, shutting down gracefully...`);
-      
+
       if (controllerRegistry) {
         console.log('Stopping all controllers...');
         await controllerRegistry.stopAll();
       }
-      
+
       server.close(() => {
         console.log('HTTP server closed');
         process.exit(0);
       });
     };
 
-    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => void gracefulShutdown('SIGTERM'));
+    process.on('SIGINT', () => void gracefulShutdown('SIGINT'));
   } catch (error) {
     console.error('Failed to start operator:', error);
     process.exit(1);
@@ -130,7 +132,7 @@ async function startOperator(): Promise<void> {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  startOperator();
+  void startOperator();
 }
 
 export { kubeApi, customObjectsApi, config };

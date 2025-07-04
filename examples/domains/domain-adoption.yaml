@@ -1,0 +1,17 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: adopted-domain
+  namespace: takaro-system
+  annotations:
+    takaro.io/adoption: "true"
+spec:
+  # Adopting an existing domain requires specifying its current external reference ID
+  # The operator will recognize this domain already exists and won't try to create it
+  name: existing-game-domain
+  externalReference: k8s-operator-prod-game-domain-abc12345
+  limits:
+    maxGameServers: 10
+    maxUsers: 200
+  settings:
+    maintenanceMode: false

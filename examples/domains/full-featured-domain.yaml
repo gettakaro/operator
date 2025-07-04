@@ -1,0 +1,22 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: production-domain
+  namespace: takaro-system
+  labels:
+    environment: production
+    team: gameops
+spec:
+  name: production-game-servers
+  externalReference: prod-game-servers-ref
+  gameServerId: "game-server-123"
+  limits:
+    maxGameServers: 20
+    maxUsers: 500
+  settings:
+    maintenanceMode: false
+  takaroConfig:
+    features:
+    - advanced-analytics
+    - custom-commands
+    - economy-system

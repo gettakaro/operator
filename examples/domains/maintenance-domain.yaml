@@ -1,0 +1,13 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: maintenance-domain
+  namespace: takaro-system
+spec:
+  name: staging-servers
+  externalReference: staging-servers-ref
+  limits:
+    maxGameServers: 5
+    maxUsers: 100
+  settings:
+    maintenanceMode: true

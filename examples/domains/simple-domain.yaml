@@ -1,0 +1,10 @@
+apiVersion: takaro.io/v1
+kind: Domain
+metadata:
+  name: simple-domain
+  namespace: takaro-system
+spec:
+  name: simple-domain
+  externalReference: simple-domain-ref
+  settings:
+    maintenanceMode: false
