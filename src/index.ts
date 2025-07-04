@@ -40,7 +40,7 @@ async function registerControllers(): Promise<void> {
   try {
     console.log('Registering controllers...');
 
-    controllerRegistry = new ControllerRegistry(kc);
+    controllerRegistry = new ControllerRegistry();
 
     // Watch all namespaces for now to debug the issue
     const domainController = new DomainController(kc);

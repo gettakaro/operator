@@ -1,4 +1,3 @@
-import * as k8s from '@kubernetes/client-node';
 import { BaseController } from './base-controller.js';
 
 export class ControllerRegistry {

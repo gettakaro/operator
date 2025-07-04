@@ -50,7 +50,7 @@ docker_build(
 )
 
 # Apply CRDs
-k8s_yaml('./config/crd/domain-simple.yaml')
+k8s_yaml('./config/crd/domain.yaml')
 
 # Apply RBAC
 k8s_yaml([

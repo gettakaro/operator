@@ -4,7 +4,7 @@ metadata:
   name: test-simple
   namespace: takaro-system
 spec:
-  name: "Test Simple Domain"
+  name: "test-simple-domain"
   externalReference: "simple-test-ref"
   limits:
     maxPlayers: 50

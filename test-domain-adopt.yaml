@@ -4,7 +4,7 @@ metadata:
   name: test-domain-adopt
   namespace: takaro-system
 spec:
-  name: "Test Domain"
+  name: "test-domain"
   externalReference: "k8s-operator-takaro-system-test-domain-c16b58c0"  # Existing domain to adopt
   limits:
     maxPlayers: 100
