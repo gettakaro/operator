@@ -74,7 +74,7 @@ export abstract class BaseController {
   protected abstract reconcile(namespace: string, name: string): Promise<ReconcileResult>;
 
   protected async setupWatch(): Promise<void> {
-    const listFn = (): Promise<{ response: any; body: any }> => {
+    const listFn = () => {
       const { group, version, plural, namespace } = this.options;
       if (namespace) {
         return this.customObjectsApi.listNamespacedCustomObject({
