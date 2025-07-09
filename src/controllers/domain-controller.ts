@@ -323,7 +323,7 @@ export class DomainController extends BaseController {
           domain.metadata?.namespace || '',
           localPlural,
           domain.metadata?.name || '',
-          patch
+          patch,
         );
       } catch (error: any) {
         console.error(`Failed to add finalizer:`, error);
@@ -359,7 +359,7 @@ export class DomainController extends BaseController {
         domain.metadata?.namespace || '',
         DOMAIN_PLURAL,
         domain.metadata?.name || '',
-        patch
+        patch,
       );
     } catch (error: any) {
       console.error(`Failed to remove finalizer:`, error.response?.body || error.message);

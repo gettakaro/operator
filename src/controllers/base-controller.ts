@@ -260,7 +260,7 @@ export abstract class BaseController {
         namespace,
         plural,
         name,
-        patch
+        patch,
       );
     } catch (error: any) {
       console.error(`Failed to update status for ${namespace}/${name}:`, error.response?.body || error.message);
