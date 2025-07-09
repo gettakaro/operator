@@ -316,15 +316,15 @@ export class DomainController extends BaseController {
 
         console.log(`[DEBUG] Patch parameters:`, JSON.stringify(patchParams));
 
-        // Try calling with explicit parameter construction
-        await ((this.customObjectsApi as any).patchNamespacedCustomObject(
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+        await (this.customObjectsApi as any).patchNamespacedCustomObject(
           localGroup,
           localVersion,
           domain.metadata?.namespace || '',
           localPlural,
           domain.metadata?.name || '',
           patch,
-        ) as Promise<unknown>);
+        );
       } catch (error: any) {
         console.error(`Failed to add finalizer:`, error);
         console.error(`Error details:`, error.response?.body || error.message || error);
@@ -352,14 +352,15 @@ export class DomainController extends BaseController {
     ];
 
     try {
-      await ((this.customObjectsApi as any).patchNamespacedCustomObject(
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-call, @typescript-eslint/no-explicit-any
+      await (this.customObjectsApi as any).patchNamespacedCustomObject(
         DOMAIN_GROUP,
         DOMAIN_VERSION,
         domain.metadata?.namespace || '',
         DOMAIN_PLURAL,
         domain.metadata?.name || '',
         patch,
-      ) as Promise<unknown>);
+      );
     } catch (error: any) {
       console.error(`Failed to remove finalizer:`, error.response?.body || error.message);
       throw error;

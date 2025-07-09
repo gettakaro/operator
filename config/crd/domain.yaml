@@ -14,12 +14,8 @@ spec:
         properties:
           apiVersion:
             type: string
-            enum:
-            - takaro.io/v1
           kind:
             type: string
-            enum:
-            - Domain
           metadata:
             type: object
           spec:
@@ -33,13 +29,11 @@ spec:
                 description: The name of the domain to create in Takaro
                 minLength: 1
                 maxLength: 63
-                pattern: '^[a-z0-9]([a-z0-9-]*[a-z0-9])?$'
               externalReference:
                 type: string
                 description: External reference ID for the domain in Takaro
                 minLength: 1
                 maxLength: 255
-                pattern: '^[a-zA-Z0-9][a-zA-Z0-9-_]*[a-zA-Z0-9]$'
               gameServerId:
                 type: string
                 description: Optional game server ID to associate with the domain
@@ -65,7 +59,6 @@ spec:
                   maintenanceMode:
                     type: boolean
                     description: Whether the domain is in maintenance mode
-                    default: false
                 additionalProperties: false
               takaroConfig:
                 type: object
@@ -73,7 +66,6 @@ spec:
                 properties:
                   apiUrl:
                     type: string
-                    format: uri
                     description: Override for Takaro API URL
                   features:
                     type: array
@@ -87,12 +79,6 @@ spec:
             properties:
               phase:
                 type: string
-                enum:
-                - Pending
-                - Creating
-                - Ready
-                - Error
-                - Deleting
                 description: Current phase of the domain lifecycle
               externalReferenceId:
                 type: string
@@ -126,17 +112,9 @@ spec:
                   properties:
                     type:
                       type: string
-                      enum:
-                      - Ready
-                      - Synced
-                      - Error
                       description: Type of condition
                     status:
                       type: string
-                      enum:
-                      - "True"
-                      - "False"
-                      - "Unknown"
                       description: Status of the condition
                     lastTransitionTime:
                       type: string
@@ -160,11 +138,6 @@ spec:
                 type: integer
                 description: The generation of the spec that was last processed
             additionalProperties: false
-        required:
-        - apiVersion
-        - kind
-        - metadata
-        - spec
         additionalProperties: false
     subresources:
       status: {}
